@@ -1,0 +1,142 @@
+PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+
+CREATE TABLE IF NOT EXISTS mdm_lookup (
+    function_code      INTEGER NOT NULL,
+    code               TEXT    NOT NULL,
+    description        TEXT    NOT NULL,
+    function_text      TEXT,
+    create_user        TEXT    NOT NULL,
+    create_timestamp   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user        TEXT    NOT NULL,
+    modify_timestamp   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status      TEXT    NOT NULL DEFAULT 'inserted'
+                              CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    PRIMARY KEY (function_code, code)
+);
+
+CREATE TABLE IF NOT EXISTS mdm_project (
+    project_name           TEXT    NOT NULL,
+    title                  TEXT    NOT NULL,
+    short_description      TEXT,
+    project_type_code      TEXT,
+    street                 TEXT,
+    house_no               TEXT,
+    postal_code            TEXT,
+    city                   TEXT,
+    country                TEXT,
+    primary_ip_address     TEXT,
+    secondary_ip_address   TEXT,
+    alarm_interval_sec     INTEGER,
+    alarm_count_limit      INTEGER,
+    technical_json         TEXT    CHECK (technical_json IS NULL OR json_valid(technical_json)),
+    create_user            TEXT    NOT NULL,
+    create_timestamp       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user            TEXT    NOT NULL,
+    modify_timestamp       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status          TEXT    NOT NULL DEFAULT 'inserted'
+                                  CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    PRIMARY KEY (project_name)
+);
+
+CREATE TABLE IF NOT EXISTS mdm_device (
+    project_name             TEXT    NOT NULL,
+    device_name              TEXT    NOT NULL,
+    title                    TEXT    NOT NULL,
+    device_type_code         TEXT    NOT NULL,
+    status                   TEXT    NOT NULL CHECK (status IN ('active','inactive')),
+    short_description_json   TEXT    CHECK (short_description_json IS NULL OR json_valid(short_description_json)),
+    limit_min_value          REAL,
+    limit_max_value          REAL,
+    alarm_enabled            INTEGER NOT NULL DEFAULT 0 CHECK (alarm_enabled IN (0,1)),
+    alarm_timestamp          TEXT,
+    alarm_level_code         TEXT,
+    detail_json              TEXT    CHECK (detail_json IS NULL OR json_valid(detail_json)),
+    create_user              TEXT    NOT NULL,
+    create_timestamp         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user              TEXT    NOT NULL,
+    modify_timestamp         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status            TEXT    NOT NULL DEFAULT 'inserted'
+                                     CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    PRIMARY KEY (project_name, device_name),
+    FOREIGN KEY (project_name)
+        REFERENCES mdm_project(project_name)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS mdm_project_alarm (
+    project_name          TEXT    NOT NULL,
+    alarm_level_code      TEXT    NOT NULL,
+    alarm_text            TEXT    NOT NULL,
+    severity_rank         INTEGER,
+    create_user           TEXT    NOT NULL,
+    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user           TEXT    NOT NULL,
+    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
+                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    PRIMARY KEY (project_name, alarm_level_code),
+    FOREIGN KEY (project_name)
+        REFERENCES mdm_project(project_name)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mdm_project_email (
+    project_name          TEXT    NOT NULL,
+    email_address         TEXT    NOT NULL,
+    email_purpose         TEXT,
+    is_active             INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),
+    create_user           TEXT    NOT NULL,
+    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user           TEXT    NOT NULL,
+    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
+                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    PRIMARY KEY (project_name, email_address),
+    FOREIGN KEY (project_name)
+        REFERENCES mdm_project(project_name)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mdm_import_log (
+    import_id             TEXT    NOT NULL,
+    import_type           TEXT    NOT NULL,
+    source_filename       TEXT,
+    started_at            TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at           TEXT,
+    imported_by           TEXT    NOT NULL,
+    status                TEXT    NOT NULL CHECK (status IN ('running','success','warning','error')),
+    message               TEXT,
+    result_json           TEXT    CHECK (result_json IS NULL OR json_valid(result_json)),
+    PRIMARY KEY (import_id)
+);
+
+CREATE TABLE IF NOT EXISTS mdm_sync_log (
+    sync_id               TEXT    NOT NULL,
+    sync_direction        TEXT    NOT NULL CHECK (sync_direction IN ('inbound','outbound')),
+    entity_name           TEXT    NOT NULL,
+    entity_key            TEXT    NOT NULL,
+    sync_timestamp        TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status                TEXT    NOT NULL CHECK (status IN ('success','error','conflict')),
+    message               TEXT,
+    payload_json          TEXT    CHECK (payload_json IS NULL OR json_valid(payload_json)),
+    PRIMARY KEY (sync_id)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_project_title       ON mdm_project(title);
+CREATE INDEX IF NOT EXISTS idx_project_type_code   ON mdm_project(project_type_code);
+CREATE INDEX IF NOT EXISTS idx_project_status      ON mdm_project(modify_status);
+
+CREATE INDEX IF NOT EXISTS idx_device_title        ON mdm_device(title);
+CREATE INDEX IF NOT EXISTS idx_device_type_code    ON mdm_device(device_type_code);
+CREATE INDEX IF NOT EXISTS idx_device_status       ON mdm_device(status);
+CREATE INDEX IF NOT EXISTS idx_device_project      ON mdm_device(project_name);
+CREATE INDEX IF NOT EXISTS idx_device_modify_status ON mdm_device(modify_status);
+
+CREATE INDEX IF NOT EXISTS idx_alarm_project       ON mdm_project_alarm(project_name);
+CREATE INDEX IF NOT EXISTS idx_email_project       ON mdm_project_email(project_name);
