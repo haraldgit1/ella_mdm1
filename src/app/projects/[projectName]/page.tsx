@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Project } from "@/types/project";
+import type { ProjectAlarm } from "@/types/alarm";
+import type { ProjectEmail } from "@/types/email";
 
-type Tab = "allgemein" | "adresse" | "technik";
+type Tab = "allgemein" | "adresse" | "technik" | "alarmstufen" | "emails";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "allgemein", label: "Allgemein" },
-  { key: "adresse",   label: "Adresse" },
-  { key: "technik",   label: "Technik" },
+  { key: "allgemein",   label: "Allgemein" },
+  { key: "adresse",     label: "Adresse" },
+  { key: "technik",     label: "Technik" },
+  { key: "alarmstufen", label: "Alarmstufen" },
+  { key: "emails",      label: "Ziel-E-Mails" },
 ];
 
 const EMPTY: Partial<Project> = {
@@ -36,15 +40,40 @@ export default function ProjectDetailPage({
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Alarmstufen state
+  const [alarms, setAlarms] = useState<ProjectAlarm[]>([]);
+  const [newAlarm, setNewAlarm] = useState({ alarm_level_code: "", alarm_text: "", severity_rank: "" });
+  const [alarmError, setAlarmError] = useState("");
+
+  // E-Mail state
+  const [emails, setEmails] = useState<ProjectEmail[]>([]);
+  const [newEmail, setNewEmail] = useState({ email_address: "", email_purpose: "" });
+  const [emailError, setEmailError] = useState("");
+
   const isLocked = form.modify_status === "locked";
+
+  const loadAlarms = useCallback(async (name: string) => {
+    const res = await fetch(`/api/alarms?projectName=${encodeURIComponent(name)}`);
+    if (res.ok) setAlarms(await res.json());
+  }, []);
+
+  const loadEmails = useCallback(async (name: string) => {
+    const res = await fetch(`/api/emails?projectName=${encodeURIComponent(name)}`);
+    if (res.ok) setEmails(await res.json());
+  }, []);
 
   useEffect(() => {
     if (isNew) return;
     fetch(`/api/projects/${encodeURIComponent(projectName)}`)
       .then((r) => r.json())
-      .then((data) => { setForm(data); setLoading(false); })
+      .then((data) => {
+        setForm(data);
+        setLoading(false);
+        loadAlarms(projectName);
+        loadEmails(projectName);
+      })
       .catch(() => setLoading(false));
-  }, [projectName, isNew]);
+  }, [projectName, isNew, loadAlarms, loadEmails]);
 
   function set(field: keyof Project, value: string | number | undefined) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -91,6 +120,57 @@ export default function ProjectDetailPage({
     if (res.ok) router.push(`/projects/${encodeURIComponent(data.project_name)}`);
   }
 
+  async function handleAddAlarm(e: React.FormEvent) {
+    e.preventDefault();
+    setAlarmError("");
+    const res = await fetch("/api/alarms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_name: projectName,
+        alarm_level_code: newAlarm.alarm_level_code,
+        alarm_text: newAlarm.alarm_text,
+        severity_rank: newAlarm.severity_rank ? Number(newAlarm.severity_rank) : undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setAlarmError(data.error ?? "Fehler"); return; }
+    setNewAlarm({ alarm_level_code: "", alarm_text: "", severity_rank: "" });
+    loadAlarms(projectName);
+  }
+
+  async function handleDeleteAlarm(alarmLevelCode: string) {
+    await fetch(`/api/alarms/${encodeURIComponent(projectName)}/${encodeURIComponent(alarmLevelCode)}`, {
+      method: "DELETE",
+    });
+    loadAlarms(projectName);
+  }
+
+  async function handleAddEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailError("");
+    const res = await fetch("/api/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_name: projectName,
+        email_address: newEmail.email_address,
+        email_purpose: newEmail.email_purpose || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setEmailError(data.error ?? "Fehler"); return; }
+    setNewEmail({ email_address: "", email_purpose: "" });
+    loadEmails(projectName);
+  }
+
+  async function handleDeleteEmail(emailAddress: string) {
+    await fetch(`/api/emails/${encodeURIComponent(projectName)}/${encodeURIComponent(emailAddress)}`, {
+      method: "DELETE",
+    });
+    loadEmails(projectName);
+  }
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center"><p className="text-gray-500">Laden…</p></div>;
   }
@@ -105,9 +185,7 @@ export default function ProjectDetailPage({
             {isNew ? "Neues Projekt" : form.project_name}
           </h1>
           {isLocked && (
-            <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-              Gesperrt
-            </span>
+            <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">Gesperrt</span>
           )}
         </div>
       </header>
@@ -115,110 +193,205 @@ export default function ProjectDetailPage({
       <main className="flex flex-1 flex-col gap-0 p-6">
         {/* Tabs */}
         <div className="flex border-b border-gray-200 bg-white px-6">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+          {TABS.filter((t) => !isNew || t.key === "allgemein" || t.key === "adresse" || t.key === "technik").map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
               className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                tab === t.key
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
+                tab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* Tab-Inhalt */}
         <div className="rounded-b-xl border border-t-0 border-gray-200 bg-white p-6">
+          {/* Allgemein */}
           {tab === "allgemein" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="ProjektName *" required>
-                <input
-                  type="text"
-                  value={form.project_name ?? ""}
-                  onChange={(e) => set("project_name", e.target.value)}
-                  disabled={!isNew || isLocked}
-                  className={input(!isNew || isLocked)}
-                />
+              <Field label="ProjektName *">
+                <input type="text" value={form.project_name ?? ""} onChange={(e) => set("project_name", e.target.value)}
+                  disabled={!isNew || isLocked} className={inp(!isNew || isLocked)} />
               </Field>
-              <Field label="Bezeichnung *" required>
-                <input
-                  type="text"
-                  value={form.title ?? ""}
-                  onChange={(e) => set("title", e.target.value)}
-                  disabled={isLocked}
-                  className={input(isLocked)}
-                />
+              <Field label="Bezeichnung *">
+                <input type="text" value={form.title ?? ""} onChange={(e) => set("title", e.target.value)}
+                  disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Kurzbeschreibung" className="sm:col-span-2">
-                <textarea
-                  rows={3}
-                  value={form.short_description ?? ""}
-                  onChange={(e) => set("short_description", e.target.value)}
-                  disabled={isLocked}
-                  className={input(isLocked) + " resize-none"}
-                />
+                <textarea rows={3} value={form.short_description ?? ""} onChange={(e) => set("short_description", e.target.value)}
+                  disabled={isLocked} className={inp(isLocked) + " resize-none"} />
               </Field>
               <Field label="ProjektTyp">
-                <input
-                  type="text"
-                  value={form.project_type_code ?? ""}
-                  onChange={(e) => set("project_type_code", e.target.value)}
-                  disabled={isLocked}
-                  className={input(isLocked)}
-                />
+                <input type="text" value={form.project_type_code ?? ""} onChange={(e) => set("project_type_code", e.target.value)}
+                  disabled={isLocked} className={inp(isLocked)} />
               </Field>
             </div>
           )}
 
+          {/* Adresse */}
           {tab === "adresse" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Straße">
-                <input type="text" value={form.street ?? ""} onChange={(e) => set("street", e.target.value)} disabled={isLocked} className={input(isLocked)} />
+                <input type="text" value={form.street ?? ""} onChange={(e) => set("street", e.target.value)} disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Hausnummer">
-                <input type="text" value={form.house_no ?? ""} onChange={(e) => set("house_no", e.target.value)} disabled={isLocked} className={input(isLocked)} />
+                <input type="text" value={form.house_no ?? ""} onChange={(e) => set("house_no", e.target.value)} disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="PLZ">
-                <input type="text" value={form.postal_code ?? ""} onChange={(e) => set("postal_code", e.target.value)} disabled={isLocked} className={input(isLocked)} />
+                <input type="text" value={form.postal_code ?? ""} onChange={(e) => set("postal_code", e.target.value)} disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Stadt">
-                <input type="text" value={form.city ?? ""} onChange={(e) => set("city", e.target.value)} disabled={isLocked} className={input(isLocked)} />
+                <input type="text" value={form.city ?? ""} onChange={(e) => set("city", e.target.value)} disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Land">
-                <input type="text" value={form.country ?? ""} onChange={(e) => set("country", e.target.value)} disabled={isLocked} className={input(isLocked)} />
+                <input type="text" value={form.country ?? ""} onChange={(e) => set("country", e.target.value)} disabled={isLocked} className={inp(isLocked)} />
               </Field>
             </div>
           )}
 
+          {/* Technik */}
           {tab === "technik" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Primäre IP-Adresse">
-                <input type="text" value={form.primary_ip_address ?? ""} onChange={(e) => set("primary_ip_address", e.target.value)} disabled={isLocked} className={input(isLocked)} />
+                <input type="text" value={form.primary_ip_address ?? ""} onChange={(e) => set("primary_ip_address", e.target.value)} disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Sekundäre IP-Adresse">
-                <input type="text" value={form.secondary_ip_address ?? ""} onChange={(e) => set("secondary_ip_address", e.target.value)} disabled={isLocked} className={input(isLocked)} />
+                <input type="text" value={form.secondary_ip_address ?? ""} onChange={(e) => set("secondary_ip_address", e.target.value)} disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Alarm-Intervall (Sek.)">
-                <input
-                  type="number" min={0}
-                  value={form.alarm_interval_sec ?? ""}
+                <input type="number" min={0} value={form.alarm_interval_sec ?? ""}
                   onChange={(e) => set("alarm_interval_sec", e.target.value ? Number(e.target.value) : undefined)}
-                  disabled={isLocked}
-                  className={input(isLocked)}
-                />
+                  disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Alarm-Count-Limit">
-                <input
-                  type="number" min={0}
-                  value={form.alarm_count_limit ?? ""}
+                <input type="number" min={0} value={form.alarm_count_limit ?? ""}
                   onChange={(e) => set("alarm_count_limit", e.target.value ? Number(e.target.value) : undefined)}
-                  disabled={isLocked}
-                  className={input(isLocked)}
-                />
+                  disabled={isLocked} className={inp(isLocked)} />
               </Field>
+            </div>
+          )}
+
+          {/* Alarmstufen */}
+          {tab === "alarmstufen" && (
+            <div className="flex flex-col gap-4">
+              {/* Liste */}
+              {alarms.length === 0 ? (
+                <p className="text-sm text-gray-400">Keine Alarmstufen vorhanden.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="pb-2 pr-4">Alarm-Stufe</th>
+                      <th className="pb-2 pr-4">Alarm-Text</th>
+                      <th className="pb-2 pr-4">Priorität</th>
+                      {!isLocked && <th className="pb-2"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alarms.map((a) => (
+                      <tr key={a.alarm_level_code} className="border-b border-gray-100 last:border-0">
+                        <td className="py-2 pr-4 font-medium">{a.alarm_level_code}</td>
+                        <td className="py-2 pr-4 text-gray-700">{a.alarm_text}</td>
+                        <td className="py-2 pr-4 text-gray-500">{a.severity_rank ?? "—"}</td>
+                        {!isLocked && (
+                          <td className="py-2">
+                            <button onClick={() => handleDeleteAlarm(a.alarm_level_code)}
+                              className="text-xs text-red-500 hover:text-red-700">Löschen</button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Hinzufügen */}
+              {!isLocked && (
+                <form onSubmit={handleAddAlarm} className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
+                  <Field label="Alarm-Stufe *">
+                    <input type="text" value={newAlarm.alarm_level_code}
+                      onChange={(e) => setNewAlarm((p) => ({ ...p, alarm_level_code: e.target.value }))}
+                      className="w-28 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="Alarm-Text *">
+                    <input type="text" value={newAlarm.alarm_text}
+                      onChange={(e) => setNewAlarm((p) => ({ ...p, alarm_text: e.target.value }))}
+                      className="w-64 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="Priorität">
+                    <input type="number" min={1} value={newAlarm.severity_rank}
+                      onChange={(e) => setNewAlarm((p) => ({ ...p, severity_rank: e.target.value }))}
+                      className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <button type="submit"
+                    className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+                    Hinzufügen
+                  </button>
+                  {alarmError && <p className="w-full text-xs text-red-600">{alarmError}</p>}
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* Ziel-E-Mails */}
+          {tab === "emails" && (
+            <div className="flex flex-col gap-4">
+              {/* Liste */}
+              {emails.length === 0 ? (
+                <p className="text-sm text-gray-400">Keine E-Mail-Adressen vorhanden.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="pb-2 pr-4">E-Mail-Adresse</th>
+                      <th className="pb-2 pr-4">Zweck</th>
+                      <th className="pb-2 pr-4">Aktiv</th>
+                      {!isLocked && <th className="pb-2"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {emails.map((e) => (
+                      <tr key={e.email_address} className="border-b border-gray-100 last:border-0">
+                        <td className="py-2 pr-4 font-medium">{e.email_address}</td>
+                        <td className="py-2 pr-4 text-gray-500">{e.email_purpose ?? "—"}</td>
+                        <td className="py-2 pr-4">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                            e.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                          }`}>
+                            {e.is_active ? "Ja" : "Nein"}
+                          </span>
+                        </td>
+                        {!isLocked && (
+                          <td className="py-2">
+                            <button onClick={() => handleDeleteEmail(e.email_address)}
+                              className="text-xs text-red-500 hover:text-red-700">Löschen</button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Hinzufügen */}
+              {!isLocked && (
+                <form onSubmit={handleAddEmail} className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
+                  <Field label="E-Mail-Adresse *">
+                    <input type="email" value={newEmail.email_address}
+                      onChange={(e) => setNewEmail((p) => ({ ...p, email_address: e.target.value }))}
+                      className="w-64 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="Zweck">
+                    <input type="text" value={newEmail.email_purpose}
+                      onChange={(e) => setNewEmail((p) => ({ ...p, email_purpose: e.target.value }))}
+                      className="w-40 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+                      placeholder="z.B. Alarm" />
+                  </Field>
+                  <button type="submit"
+                    className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+                    Hinzufügen
+                  </button>
+                  {emailError && <p className="w-full text-xs text-red-600">{emailError}</p>}
+                </form>
+              )}
             </div>
           )}
         </div>
@@ -237,72 +410,50 @@ export default function ProjectDetailPage({
           </div>
         )}
 
-        {/* Aktionsbuttons */}
-        <div className="mt-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push("/projects")}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Abbrechen
-          </button>
-
-          <div className="flex gap-2">
-            {!isNew && !isLocked && (
-              <button onClick={handleLock} className="rounded-lg border border-yellow-400 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50">
-                Sperren
-              </button>
-            )}
-            {!isNew && !isLocked && (
-              <button onClick={() => setConfirmDelete(true)} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-                Löschen
-              </button>
-            )}
-            {!isNew && !isLocked && (
-              <button onClick={handleCopy} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                Kopieren
-              </button>
-            )}
-            {isNew && (
-              <button
-                onClick={() => { setForm(EMPTY); }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Neuanlage
-              </button>
-            )}
-            {!isLocked && (
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? "Speichert…" : "Speichern"}
-              </button>
-            )}
+        {/* Aktionsbuttons — nur für Hauptformular (nicht für Sub-Tabs) */}
+        {(tab === "allgemein" || tab === "adresse" || tab === "technik") && (
+          <div className="mt-4 flex items-center justify-between">
+            <button onClick={() => router.push("/projects")}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              Abbrechen
+            </button>
+            <div className="flex gap-2">
+              {!isNew && !isLocked && (
+                <button onClick={handleLock} className="rounded-lg border border-yellow-400 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50">Sperren</button>
+              )}
+              {!isNew && !isLocked && (
+                <button onClick={() => setConfirmDelete(true)} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Löschen</button>
+              )}
+              {!isNew && !isLocked && (
+                <button onClick={handleCopy} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Kopieren</button>
+              )}
+              {isNew && (
+                <button onClick={() => setForm(EMPTY)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Neuanlage</button>
+              )}
+              {!isLocked && (
+                <button onClick={handleSave} disabled={saving}
+                  className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                  {saving ? "Speichert…" : "Speichern"}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );
 }
 
-function Field({ label, children, className = "", required }: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-  required?: boolean;
-}) {
+function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
-      <label className="text-xs font-medium text-gray-600">
-        {label}{required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
+      <label className="text-xs font-medium text-gray-600">{label}</label>
       {children}
     </div>
   );
 }
 
-function input(disabled: boolean) {
+function inp(disabled: boolean) {
   return `rounded-lg border px-3 py-2 text-sm outline-none ${
     disabled
       ? "border-gray-200 bg-gray-50 text-gray-500"
