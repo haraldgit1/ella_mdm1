@@ -26,12 +26,12 @@ export async function GET(request: NextRequest) {
 
   const rows = getDb()
     .prepare(
-      `SELECT project_name, device_name, name, title, data_type,
+      `SELECT project_name, device_name, name, title, datablock, data_type,
               offset, range, unit, detail_json,
               create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version
        FROM mdm_device_variable
        WHERE ${conditions.join(" AND ")}
-       ORDER BY project_name, device_name, name`
+       ORDER BY project_name, device_name, CAST(offset AS REAL)`
     )
     .all(...params);
 
@@ -55,13 +55,14 @@ export async function POST(request: NextRequest) {
   try {
     getDb().prepare(
       `INSERT INTO mdm_device_variable
-        (project_name, device_name, name, title, data_type, offset, range, unit, detail_json,
+        (project_name, device_name, name, title, datablock, data_type, offset, range, unit, detail_json,
          create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version)
        VALUES
-        (@project_name, @device_name, @name, @title, @data_type, @offset, @range, @unit, @detail_json,
+        (@project_name, @device_name, @name, @title, @datablock, @data_type, @offset, @range, @unit, @detail_json,
          @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status, @version)`
     ).run({
       ...body,
+      datablock: body.datablock?.trim() || null,
       offset: body.offset?.trim() || null,
       range: body.range?.trim() || null,
       unit: body.unit?.trim() || null,

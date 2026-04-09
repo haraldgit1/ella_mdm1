@@ -10,7 +10,7 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
   if (!session) return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const { projectName, deviceName, name } = await ctx.params;
-  const body: { title: string; data_type: string; offset?: string; range?: string; unit?: string; detail_json?: string } =
+  const body: { title: string; datablock?: string; data_type: string; offset?: string; range?: string; unit?: string; detail_json?: string } =
     await request.json();
 
   if (!body.title?.trim())     return Response.json({ error: "Bezeichnung fehlt" }, { status: 400 });
@@ -19,7 +19,7 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
   const audit = auditUpdate(session.user.email);
   const result = getDb().prepare(
     `UPDATE mdm_device_variable
-     SET title=@title, data_type=@data_type,
+     SET title=@title, datablock=@datablock, data_type=@data_type,
          offset=@offset, range=@range, unit=@unit, detail_json=@detail_json,
          modify_user=@modify_user, modify_timestamp=@modify_timestamp,
          modify_status=@modify_status, version=version+1
@@ -27,6 +27,7 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
        AND modify_status != 'deleted'`
   ).run({
     title: body.title,
+    datablock: body.datablock?.trim() || null,
     data_type: body.data_type,
     offset: body.offset?.trim() || null,
     range: body.range?.trim() || null,

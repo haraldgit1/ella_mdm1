@@ -98,7 +98,7 @@ export default function DevicesPage() {
   function handleRowClick(row: DeviceRow) {
     setHighlighted(rowKey(row));
     sessionStorage.setItem(LAST_CLICKED_KEY, rowKey(row));
-    router.push(`/devices/${encodeURIComponent(row.project_name)}/${encodeURIComponent(row.device_name)}`);
+    router.push(`/devices/${encodeURIComponent(row.project_name)}?device=${encodeURIComponent(row.device_name)}`);
   }
 
   return (
@@ -109,7 +109,7 @@ export default function DevicesPage() {
           <h1 className="text-lg font-semibold text-gray-900">Devices</h1>
         </div>
         <button
-          onClick={() => router.push("/devices/new/new")}
+          onClick={() => router.push("/devices/new?device=new")}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           + Neuanlage

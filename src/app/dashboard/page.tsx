@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: "Alarme",     href: "/alarms",     icon: "🔔" },
   { label: "Devices",    href: "/devices",    icon: "📡" },
   { label: "Variablen",  href: "/variables",  icon: "📋" },
+  { label: "Lookups",    href: "/lookups",    icon: "🔖" },
   { label: "Reports",    href: "/reports",    icon: "📊" },
   { label: "Import",     href: "/import",     icon: "📥" },
   { label: "Export",     href: "/export",     icon: "📤" },

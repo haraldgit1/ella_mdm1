@@ -183,7 +183,7 @@ function importRow(type: ImportType, row: Record<string, string>, user: string):
       if (existing) {
         const a = auditUpdate(user);
         db.prepare(
-          `UPDATE mdm_device_variable SET title=@title, data_type=@data_type,
+          `UPDATE mdm_device_variable SET title=@title, datablock=@datablock, data_type=@data_type,
            offset=@offset, range=@range, unit=@unit,
            modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
            WHERE project_name=@project_name AND device_name=@device_name AND name=@name`
@@ -192,9 +192,9 @@ function importRow(type: ImportType, row: Record<string, string>, user: string):
       }
       const a = auditInsert(user);
       db.prepare(
-        `INSERT INTO mdm_device_variable (project_name,device_name,name,title,data_type,
+        `INSERT INTO mdm_device_variable (project_name,device_name,name,title,datablock,data_type,
          offset,range,unit,create_user,create_timestamp,modify_user,modify_timestamp,modify_status,version)
-         VALUES (@project_name,@device_name,@name,@title,@data_type,
+         VALUES (@project_name,@device_name,@name,@title,@datablock,@data_type,
          @offset,@range,@unit,@create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status,@version)`
       ).run({ ...nullify(row), ...a });
       return "inserted";

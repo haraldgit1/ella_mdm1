@@ -52,7 +52,7 @@ export function exportCsv(type: ExportType): string {
     }
 
     case "variables": {
-      const headers = ["project_name","device_name","name","title","data_type","offset","range","unit"];
+      const headers = ["project_name","device_name","name","title","datablock","data_type","offset","range","unit"];
       const rows = db.prepare(
         `SELECT ${headers.join(",")} FROM mdm_device_variable WHERE modify_status != 'deleted' ORDER BY project_name, device_name, name`
       ).all() as Record<string, unknown>[];

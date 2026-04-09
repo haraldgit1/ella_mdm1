@@ -20,7 +20,7 @@ const TEMPLATES: Record<ImportType, string> = {
   alarms:    "project_name,alarm_level_code,alarm_text,severity_rank\nProjekt1,ALM1,Alarm-Text,1",
   emails:    "project_name,email_address,email_purpose,is_active\nProjekt1,mail@example.com,Alarm,1",
   lookups:   "function_code,code,description,function_text\n100,6,Pumpe2,DeviceType",
-  variables: "project_name,device_name,name,title,data_type,offset,range,unit\nProjekt1,Device1,Leistung,Aktuelle Leistung,3,DB10.DBD0,0..2500,kW",
+  variables: "project_name,device_name,name,title,datablock,data_type,offset,range,unit\nProjekt1,Device1,Leistung,Aktuelle Leistung,DB10,3,DB10.DBD0,0..2500,kW",
 };
 
 interface ImportResult {

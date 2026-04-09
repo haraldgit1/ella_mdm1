@@ -12,7 +12,7 @@ const LAST_CLICKED_KEY = "variables_last_clicked";
 
 const EMPTY_FORM = {
   project_name: "", device_name: "", name: "", title: "",
-  data_type: "", offset: "", range: "", unit: "", detail_json: "",
+  datablock: "", data_type: "", offset: "", range: "", unit: "", detail_json: "",
 };
 
 export default function VariablesPage() {
@@ -93,7 +93,7 @@ export default function VariablesPage() {
     setEditKey({ project_name: row.project_name, device_name: row.device_name, name: row.name });
     setForm({
       project_name: row.project_name, device_name: row.device_name, name: row.name,
-      title: row.title, data_type: row.data_type,
+      title: row.title, datablock: row.datablock ?? "", data_type: row.data_type,
       offset: row.offset ?? "", range: row.range ?? "",
       unit: row.unit ?? "", detail_json: row.detail_json ?? "",
     });
@@ -125,7 +125,7 @@ export default function VariablesPage() {
       const res = await fetch("/api/variables", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, offset: form.offset || null, range: form.range || null, unit: form.unit || null, detail_json: form.detail_json || null }),
+        body: JSON.stringify({ ...form, datablock: form.datablock || null, offset: form.offset || null, range: form.range || null, unit: form.unit || null, detail_json: form.detail_json || null }),
       });
       const data = await res.json();
       setSaving(false);
@@ -136,7 +136,7 @@ export default function VariablesPage() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: form.title, data_type: form.data_type, offset: form.offset || null, range: form.range || null, unit: form.unit || null, detail_json: form.detail_json || null }),
+          body: JSON.stringify({ title: form.title, datablock: form.datablock || null, data_type: form.data_type, offset: form.offset || null, range: form.range || null, unit: form.unit || null, detail_json: form.detail_json || null }),
         }
       );
       const data = await res.json();
@@ -220,6 +220,7 @@ export default function VariablesPage() {
                     <th className="px-4 py-3">DeviceName</th>
                     <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Bezeichnung</th>
+                    <th className="px-4 py-3">Datenbaustein</th>
                     <th className="px-4 py-3">DataType</th>
                     <th className="px-4 py-3">Offset</th>
                     <th className="px-4 py-3">Einheit</th>
@@ -237,6 +238,7 @@ export default function VariablesPage() {
                         <td className={`px-4 py-3 ${hl ? "font-semibold text-gray-900" : "text-gray-500"}`}>{row.device_name}</td>
                         <td className={`px-4 py-3 text-blue-700 ${hl ? "font-bold" : "font-medium"}`}>{row.name}</td>
                         <td className={`px-4 py-3 ${hl ? "font-semibold text-gray-900" : "text-gray-700"}`}>{row.title}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-400">{row.datablock ?? "—"}</td>
                         <td className="px-4 py-3 text-gray-500">{dtLabel(row.data_type)}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-400">{row.offset ?? "—"}</td>
                         <td className="px-4 py-3 text-gray-500">{row.unit ?? "—"}</td>
@@ -292,6 +294,10 @@ export default function VariablesPage() {
               <DField label="Bezeichnung *">
                 <input type="text" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
                   className={fi(false)} />
+              </DField>
+              <DField label="Datenbaustein">
+                <input type="text" value={form.datablock} onChange={(e) => setForm((p) => ({ ...p, datablock: e.target.value }))}
+                  placeholder="DB10" className={fi(false)} />
               </DField>
               <DField label="DataType *">
                 <select value={form.data_type} onChange={(e) => setForm((p) => ({ ...p, data_type: e.target.value }))}

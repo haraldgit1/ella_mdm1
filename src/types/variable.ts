@@ -5,6 +5,7 @@ export interface DeviceVariable {
   device_name: string;
   name: string;
   title: string;
+  datablock?: string;
   data_type: string;
   offset?: string;
   range?: string;
@@ -21,5 +22,5 @@ export interface DeviceVariable {
 export type DeviceVariableInput = Pick<
   DeviceVariable,
   | "project_name" | "device_name" | "name"
-  | "title" | "data_type" | "offset" | "range" | "unit" | "detail_json"
+  | "title" | "datablock" | "data_type" | "offset" | "range" | "unit" | "detail_json"
 >;

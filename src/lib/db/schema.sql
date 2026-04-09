@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS mdm_device_variable (
     device_name           TEXT    NOT NULL,
     name                  TEXT    NOT NULL,
     title                 TEXT    NOT NULL,
+    datablock             TEXT,
     data_type             TEXT    NOT NULL,
     offset                TEXT,
     range                 TEXT,

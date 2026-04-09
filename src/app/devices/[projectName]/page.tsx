@@ -26,11 +26,12 @@ const EMPTY: Partial<Device> = {
 export default function DeviceDetailPage({
   params,
 }: {
-  params: Promise<{ projectName: string; deviceName: string }>;
+  params: Promise<{ projectName: string }>;
 }) {
-  const { projectName, deviceName } = use(params);
-  const isNew = projectName === "new" && deviceName === "new";
+  const { projectName } = use(params);
   const searchParams = useSearchParams();
+  const deviceName = searchParams.get("device") ?? "new";
+  const isNew = projectName === "new" && deviceName === "new";
   const isCopy = searchParams.get("copy") === "1";
   const router = useRouter();
 
@@ -46,8 +47,11 @@ export default function DeviceDetailPage({
   const [dataTypeList, setDataTypeList] = useState<{ code: string; description: string }[]>([]);
 
   const [variables, setVariables] = useState<DeviceVariable[]>([]);
-  const [newVar, setNewVar] = useState({ name: "", title: "", data_type: "", offset: "", range: "", unit: "" });
+  const [newVar, setNewVar] = useState({ name: "", title: "", datablock: "", data_type: "", offset: "", range: "", unit: "" });
   const [varError, setVarError] = useState("");
+
+  const [spsLoading, setSpsLoading] = useState(false);
+  const [spsStatus, setSpsStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const isLocked = form.modify_status === "locked";
 
@@ -88,10 +92,6 @@ export default function DeviceDetailPage({
   async function handleSave() {
     setError("");
     const actAsNew = isNew || isCopy;
-    if (actAsNew && form.device_name && !/^[A-Za-z0-9_-]+$/.test(form.device_name)) {
-      setError("DeviceName darf nur Buchstaben (A-Z), Ziffern, Bindestrich und Unterstrich enthalten (keine Umlaute oder Sonderzeichen)");
-      return;
-    }
     setSaving(true);
     const method = actAsNew ? "POST" : "PUT";
     const url = actAsNew
@@ -106,7 +106,7 @@ export default function DeviceDetailPage({
     const data = await res.json();
     setSaving(false);
     if (!res.ok) { setError(data.error ?? "Fehler"); return; }
-    if (actAsNew) router.replace(`/devices/${encodeURIComponent(data.project_name)}/${encodeURIComponent(data.device_name)}`);
+    if (actAsNew) router.replace(`/devices/${encodeURIComponent(data.project_name)}?device=${encodeURIComponent(data.device_name)}`);
   }
 
   async function handleDelete() {
@@ -134,7 +134,7 @@ export default function DeviceDetailPage({
   }
 
   function handleCopy() {
-    router.push(`/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}?copy=1`);
+    router.push(`/devices/${encodeURIComponent(projectName)}?device=${encodeURIComponent(deviceName)}&copy=1`);
   }
 
   async function handleAddVariable(e: React.FormEvent) {
@@ -148,6 +148,7 @@ export default function DeviceDetailPage({
         device_name: deviceName,
         name: newVar.name,
         title: newVar.title,
+        datablock: newVar.datablock || null,
         data_type: newVar.data_type,
         offset: newVar.offset || null,
         range: newVar.range || null,
@@ -156,8 +157,25 @@ export default function DeviceDetailPage({
     });
     const data = await res.json();
     if (!res.ok) { setVarError(data.error ?? "Fehler"); return; }
-    setNewVar({ name: "", title: "", data_type: "", offset: "", range: "", unit: "" });
+    setNewVar({ name: "", title: "", datablock: "", data_type: "", offset: "", range: "", unit: "" });
     loadVariables(projectName, deviceName);
+  }
+
+  async function handleCreateSpsInterface() {
+    setSpsLoading(true);
+    setSpsStatus(null);
+    const res = await fetch("/api/sps-interface", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_name: projectName, device_name: deviceName }),
+    });
+    const data = await res.json();
+    setSpsLoading(false);
+    if (!res.ok) {
+      setSpsStatus({ ok: false, msg: data.error ?? "Fehler" });
+    } else {
+      setSpsStatus({ ok: true, msg: `${data.filename} erstellt (${data.count} Variablen)` });
+    }
   }
 
   async function handleDeleteVariable(name: string) {
@@ -184,6 +202,19 @@ export default function DeviceDetailPage({
             <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">Gesperrt</span>
           )}
         </div>
+        {!isNew && !isCopy && (
+          <div className="flex items-center gap-3">
+            {spsStatus && (
+              <span className={`text-xs font-medium ${spsStatus.ok ? "text-green-600" : "text-red-600"}`}>
+                {spsStatus.ok ? "✓ " : "✗ "}{spsStatus.msg}
+              </span>
+            )}
+            <button onClick={handleCreateSpsInterface} disabled={spsLoading}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+              {spsLoading ? "Erstellt…" : "SPS-Interface-Datei erstellen"}
+            </button>
+          </div>
+        )}
       </header>
 
       <main className="flex flex-1 flex-col gap-0 p-6">
@@ -307,6 +338,7 @@ export default function DeviceDetailPage({
                     <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                       <th className="pb-2 pr-3">Name</th>
                       <th className="pb-2 pr-3">Bezeichnung</th>
+                      <th className="pb-2 pr-3">Datenbaustein</th>
                       <th className="pb-2 pr-3">DataType</th>
                       <th className="pb-2 pr-3">Offset</th>
                       <th className="pb-2 pr-3">Wertebereich</th>
@@ -319,6 +351,7 @@ export default function DeviceDetailPage({
                       <tr key={v.name} className="border-b border-gray-100 last:border-0">
                         <td className="py-2 pr-3 font-medium text-blue-700">{v.name}</td>
                         <td className="py-2 pr-3">{v.title}</td>
+                        <td className="py-2 pr-3 font-mono text-xs text-gray-400">{v.datablock ?? "—"}</td>
                         <td className="py-2 pr-3 text-gray-500">
                           {dataTypeList.find((t) => t.code === v.data_type)?.description ?? v.data_type}
                         </td>
@@ -347,6 +380,12 @@ export default function DeviceDetailPage({
                     <input type="text" value={newVar.title}
                       onChange={(e) => setNewVar((p) => ({ ...p, title: e.target.value }))}
                       className="w-44 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="Datenbaustein">
+                    <input type="text" value={newVar.datablock}
+                      onChange={(e) => setNewVar((p) => ({ ...p, datablock: e.target.value }))}
+                      placeholder="DB10"
+                      className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
                   </Field>
                   <Field label="DataType *">
                     <select value={newVar.data_type}
@@ -407,7 +446,6 @@ export default function DeviceDetailPage({
           </div>
         )}
 
-        {/* Aktionsbuttons */}
         <div className="mt-4 flex items-center justify-between">
           <button onClick={() => router.back()}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
