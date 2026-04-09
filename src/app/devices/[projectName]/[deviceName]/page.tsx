@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Device } from "@/types/device";
 
 type Tab = "allgemein" | "beschreibung" | "limits" | "alarm" | "technik";
@@ -26,12 +26,14 @@ export default function DeviceDetailPage({
   params: Promise<{ projectName: string; deviceName: string }>;
 }) {
   const { projectName, deviceName } = use(params);
-  const isNew = projectName === "new";
+  const isNew = projectName === "new" && deviceName === "new";
+  const searchParams = useSearchParams();
+  const isCopy = searchParams.get("copy") === "1";
   const router = useRouter();
 
   const [form, setForm] = useState<Partial<Device>>(EMPTY);
   const [tab, setTab] = useState<Tab>("allgemein");
-  const [loading, setLoading] = useState(!isNew);
+  const [loading, setLoading] = useState(!isNew || isCopy);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -39,12 +41,19 @@ export default function DeviceDetailPage({
   const isLocked = form.modify_status === "locked";
 
   useEffect(() => {
-    if (isNew) return;
+    if (isNew && !isCopy) return;
     fetch(`/api/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}`)
       .then((r) => r.json())
-      .then((data) => { setForm(data); setLoading(false); })
+      .then((data) => {
+        if (isCopy) {
+          setForm({ ...data, device_name: `${data.device_name}_KOPIE`, modify_status: undefined });
+        } else {
+          setForm(data);
+        }
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
-  }, [projectName, deviceName, isNew]);
+  }, [projectName, deviceName, isNew, isCopy]);
 
   function set(field: keyof Device, value: string | number | undefined) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -52,13 +61,14 @@ export default function DeviceDetailPage({
 
   async function handleSave() {
     setError("");
-    if (isNew && form.device_name && !/^[A-Za-z0-9_-]+$/.test(form.device_name)) {
+    const actAsNew = isNew || isCopy;
+    if (actAsNew && form.device_name && !/^[A-Za-z0-9_-]+$/.test(form.device_name)) {
       setError("DeviceName darf nur Buchstaben (A-Z), Ziffern, Bindestrich und Unterstrich enthalten (keine Umlaute oder Sonderzeichen)");
       return;
     }
     setSaving(true);
-    const method = isNew ? "POST" : "PUT";
-    const url = isNew
+    const method = actAsNew ? "POST" : "PUT";
+    const url = actAsNew
       ? "/api/devices"
       : `/api/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}`;
 
@@ -70,7 +80,7 @@ export default function DeviceDetailPage({
     const data = await res.json();
     setSaving(false);
     if (!res.ok) { setError(data.error ?? "Fehler"); return; }
-    if (isNew) router.replace(`/devices/${encodeURIComponent(data.project_name)}/${encodeURIComponent(data.device_name)}`);
+    if (actAsNew) router.replace(`/devices/${encodeURIComponent(data.project_name)}/${encodeURIComponent(data.device_name)}`);
   }
 
   async function handleDelete() {
@@ -97,15 +107,8 @@ export default function DeviceDetailPage({
     if (res.ok) setForm((f) => ({ ...f, modify_status: "updated" }));
   }
 
-  async function handleCopy() {
-    const copy = { ...form, device_name: `${form.device_name}_KOPIE` };
-    const res = await fetch("/api/devices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(copy),
-    });
-    const data = await res.json();
-    if (res.ok) router.push(`/devices/${encodeURIComponent(data.project_name)}/${encodeURIComponent(data.device_name)}`);
+  function handleCopy() {
+    router.push(`/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}?copy=1`);
   }
 
   if (loading) {
@@ -118,7 +121,7 @@ export default function DeviceDetailPage({
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-700">← Devices</button>
           <h1 className="text-lg font-semibold text-gray-900">
-            {isNew ? "Neues Device" : `${form.project_name} / ${form.device_name}`}
+            {isNew ? "Neues Device" : isCopy ? `Kopie von ${form.project_name} / ${deviceName}` : `${form.project_name} / ${form.device_name}`}
           </h1>
           {isLocked && (
             <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">Gesperrt</span>
@@ -144,11 +147,11 @@ export default function DeviceDetailPage({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="ProjektName *">
                 <input type="text" value={form.project_name ?? ""} onChange={(e) => set("project_name", e.target.value)}
-                  disabled={!isNew || isLocked} className={inp(!isNew || isLocked)} />
+                  disabled={!(isNew || isCopy) || isLocked} className={inp(!(isNew || isCopy) || isLocked)} />
               </Field>
               <Field label="DeviceName *">
                 <input type="text" value={form.device_name ?? ""} onChange={(e) => set("device_name", e.target.value)}
-                  disabled={!isNew || isLocked} className={inp(!isNew || isLocked)} />
+                  disabled={!(isNew || isCopy) || isLocked} className={inp(!(isNew || isCopy) || isLocked)} />
               </Field>
               <Field label="Bezeichnung *">
                 <input type="text" value={form.title ?? ""} onChange={(e) => set("title", e.target.value)}
@@ -254,7 +257,7 @@ export default function DeviceDetailPage({
             {!isNew && (
               <button onClick={handleCopy} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Kopieren</button>
             )}
-            {isNew && (
+            {(isNew || isCopy) && (
               <button onClick={() => setForm(EMPTY)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Neuanlage</button>
             )}
             <button onClick={handleSave} disabled={saving}

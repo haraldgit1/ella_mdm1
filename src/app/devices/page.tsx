@@ -109,7 +109,7 @@ export default function DevicesPage() {
           <h1 className="text-lg font-semibold text-gray-900">Devices</h1>
         </div>
         <button
-          onClick={() => router.push("/devices/new")}
+          onClick={() => router.push("/devices/new/new")}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           + Neuanlage
