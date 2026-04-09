@@ -41,6 +41,8 @@ export default function ProjectDetailPage({
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const [projectTypeList, setProjectTypeList] = useState<{ code: string; description: string }[]>([]);
+
   // Alarmstufen state
   const [alarms, setAlarms] = useState<ProjectAlarm[]>([]);
   const [newAlarm, setNewAlarm] = useState({ alarm_level_code: "", alarm_text: "", severity_rank: "" });
@@ -64,6 +66,11 @@ export default function ProjectDetailPage({
   }, []);
 
   useEffect(() => {
+    if (isNew || isCopy) {
+      fetch("/api/lookups?function=200")
+        .then((r) => r.json())
+        .then((data) => setProjectTypeList(Array.isArray(data) ? data : []));
+    }
     if (isNew && !isCopy) return;
     fetch(`/api/projects/${encodeURIComponent(projectName)}`)
       .then((r) => r.json())
@@ -233,8 +240,17 @@ export default function ProjectDetailPage({
                   disabled={isLocked} className={inp(isLocked) + " resize-none"} />
               </Field>
               <Field label="ProjektTyp">
-                <input type="text" value={form.project_type_code ?? ""} onChange={(e) => set("project_type_code", e.target.value)}
-                  disabled={isLocked} className={inp(isLocked)} />
+                {(isNew || isCopy) ? (
+                  <select value={form.project_type_code ?? ""} onChange={(e) => set("project_type_code", e.target.value)}
+                    disabled={isLocked} className={inp(isLocked)}>
+                    <option value="">— bitte wählen —</option>
+                    {projectTypeList.map((t) => (
+                      <option key={t.code} value={t.code}>{t.description}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input type="text" value={form.project_type_code ?? ""} disabled className={inp(true)} />
+                )}
               </Field>
             </div>
           )}
