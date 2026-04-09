@@ -1,7 +1,7 @@
 import { toCsvLine } from "@/lib/import/csv-parser";
 import { getDb } from "@/lib/db/db";
 
-export type ExportType = "projects" | "devices" | "alarms" | "emails" | "lookups";
+export type ExportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables";
 
 export function exportCsv(type: ExportType): string {
   const db = getDb();
@@ -50,17 +50,26 @@ export function exportCsv(type: ExportType): string {
       ).all() as Record<string, unknown>[];
       return [toCsvLine(headers), ...rows.map((r) => toCsvLine(headers.map((h) => r[h] as string)))].join("\n");
     }
+
+    case "variables": {
+      const headers = ["project_name","device_name","name","title","data_type","offset","range","unit"];
+      const rows = db.prepare(
+        `SELECT ${headers.join(",")} FROM mdm_device_variable WHERE modify_status != 'deleted' ORDER BY project_name, device_name, name`
+      ).all() as Record<string, unknown>[];
+      return [toCsvLine(headers), ...rows.map((r) => toCsvLine(headers.map((h) => r[h] as string)))].join("\n");
+    }
   }
 }
 
 export function exportJson(type: ExportType): unknown[] {
   const db = getDb();
   const queries: Record<ExportType, string> = {
-    projects: "SELECT * FROM mdm_project WHERE modify_status != 'deleted' ORDER BY project_name",
-    devices:  "SELECT * FROM mdm_device WHERE modify_status != 'deleted' ORDER BY project_name, device_name",
-    alarms:   "SELECT * FROM mdm_project_alarm WHERE modify_status != 'deleted' ORDER BY project_name",
-    emails:   "SELECT * FROM mdm_project_email WHERE modify_status != 'deleted' ORDER BY project_name",
-    lookups:  "SELECT * FROM mdm_lookup WHERE modify_status != 'deleted' ORDER BY function_code, code",
+    projects:  "SELECT * FROM mdm_project WHERE modify_status != 'deleted' ORDER BY project_name",
+    devices:   "SELECT * FROM mdm_device WHERE modify_status != 'deleted' ORDER BY project_name, device_name",
+    alarms:    "SELECT * FROM mdm_project_alarm WHERE modify_status != 'deleted' ORDER BY project_name",
+    emails:    "SELECT * FROM mdm_project_email WHERE modify_status != 'deleted' ORDER BY project_name",
+    lookups:   "SELECT * FROM mdm_lookup WHERE modify_status != 'deleted' ORDER BY function_code, code",
+    variables: "SELECT * FROM mdm_device_variable WHERE modify_status != 'deleted' ORDER BY project_name, device_name, name",
   };
   return db.prepare(queries[type]).all();
 }

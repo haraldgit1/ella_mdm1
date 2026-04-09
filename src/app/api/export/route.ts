@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { exportCsv, exportJson, type ExportType } from "@/lib/export/csv-export";
 
-const VALID_TYPES: ExportType[] = ["projects", "devices", "alarms", "emails", "lookups"];
+const VALID_TYPES: ExportType[] = ["projects", "devices", "alarms", "emails", "lookups", "variables"];
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });

@@ -3,22 +3,24 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 
-type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups";
+type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables";
 
 const TYPE_OPTIONS: { value: ImportType; label: string }[] = [
-  { value: "projects", label: "Projekte" },
-  { value: "devices",  label: "Devices" },
-  { value: "alarms",   label: "Alarmstufen" },
-  { value: "emails",   label: "Ziel-E-Mails" },
-  { value: "lookups",  label: "Lookup-Werte" },
+  { value: "projects",  label: "Projekte" },
+  { value: "devices",   label: "Devices" },
+  { value: "alarms",    label: "Alarmstufen" },
+  { value: "emails",    label: "Ziel-E-Mails" },
+  { value: "lookups",   label: "Lookup-Werte" },
+  { value: "variables", label: "Variablen" },
 ];
 
 const TEMPLATES: Record<ImportType, string> = {
-  projects: "project_name,title,short_description,project_type_code,street,house_no,postal_code,city,country,primary_ip_address,secondary_ip_address,alarm_interval_sec,alarm_count_limit\nProjekt1,Bezeichnung 1,,,,,,,,,,,",
-  devices:  "project_name,device_name,title,device_type_code,status,limit_min_value,limit_max_value,alarm_enabled,alarm_level_code\nProjekt1,Device1,Bezeichnung,1,active,,,0,",
-  alarms:   "project_name,alarm_level_code,alarm_text,severity_rank\nProjekt1,ALM1,Alarm-Text,1",
-  emails:   "project_name,email_address,email_purpose,is_active\nProjekt1,mail@example.com,Alarm,1",
-  lookups:  "function_code,code,description,function_text\n100,6,Pumpe2,DeviceType",
+  projects:  "project_name,title,short_description,project_type_code,street,house_no,postal_code,city,country,primary_ip_address,secondary_ip_address,alarm_interval_sec,alarm_count_limit\nProjekt1,Bezeichnung 1,,,,,,,,,,,",
+  devices:   "project_name,device_name,title,device_type_code,status,limit_min_value,limit_max_value,alarm_enabled,alarm_level_code\nProjekt1,Device1,Bezeichnung,1,active,,,0,",
+  alarms:    "project_name,alarm_level_code,alarm_text,severity_rank\nProjekt1,ALM1,Alarm-Text,1",
+  emails:    "project_name,email_address,email_purpose,is_active\nProjekt1,mail@example.com,Alarm,1",
+  lookups:   "function_code,code,description,function_text\n100,6,Pumpe2,DeviceType",
+  variables: "project_name,device_name,name,title,data_type,offset,range,unit\nProjekt1,Device1,Leistung,Aktuelle Leistung,3,DB10.DBD0,0..2500,kW",
 };
 
 interface ImportResult {

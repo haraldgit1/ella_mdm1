@@ -2,7 +2,7 @@ import { getDb } from "@/lib/db/db";
 import { auditInsert, auditUpdate } from "@/lib/audit/audit";
 import { parseCsv } from "./csv-parser";
 
-export type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups";
+export type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables";
 
 export interface ImportResult {
   imported: number;
@@ -168,6 +168,35 @@ function importRow(type: ImportType, row: Record<string, string>, user: string):
          VALUES (@function_code,@code,@description,@function_text,
          @create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status)`
       ).run({ ...nullify(row), function_code: Number(row.function_code), ...a });
+      return "inserted";
+    }
+
+    case "variables": {
+      if (!row.project_name) throw new Error("project_name fehlt");
+      if (!row.device_name)  throw new Error("device_name fehlt");
+      if (!row.name)         throw new Error("name fehlt");
+      if (!row.title)        throw new Error("title fehlt");
+      if (!row.data_type)    throw new Error("data_type fehlt");
+      const existing = db.prepare(
+        "SELECT 1 FROM mdm_device_variable WHERE project_name=? AND device_name=? AND name=?"
+      ).get(row.project_name, row.device_name, row.name);
+      if (existing) {
+        const a = auditUpdate(user);
+        db.prepare(
+          `UPDATE mdm_device_variable SET title=@title, data_type=@data_type,
+           offset=@offset, range=@range, unit=@unit,
+           modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
+           WHERE project_name=@project_name AND device_name=@device_name AND name=@name`
+        ).run({ ...nullify(row), ...a });
+        return "updated";
+      }
+      const a = auditInsert(user);
+      db.prepare(
+        `INSERT INTO mdm_device_variable (project_name,device_name,name,title,data_type,
+         offset,range,unit,create_user,create_timestamp,modify_user,modify_timestamp,modify_status,version)
+         VALUES (@project_name,@device_name,@name,@title,@data_type,
+         @offset,@range,@unit,@create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status,@version)`
+      ).run({ ...nullify(row), ...a });
       return "inserted";
     }
   }

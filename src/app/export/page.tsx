@@ -3,15 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 
-type ExportType = "projects" | "devices" | "alarms" | "emails" | "lookups";
+type ExportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables";
 type ExportFormat = "csv" | "json";
 
 const TYPE_OPTIONS: { value: ExportType; label: string }[] = [
-  { value: "projects", label: "Projekte" },
-  { value: "devices",  label: "Devices" },
-  { value: "alarms",   label: "Alarmstufen" },
-  { value: "emails",   label: "Ziel-E-Mails" },
-  { value: "lookups",  label: "Lookup-Werte" },
+  { value: "projects",  label: "Projekte" },
+  { value: "devices",   label: "Devices" },
+  { value: "alarms",    label: "Alarmstufen" },
+  { value: "emails",    label: "Ziel-E-Mails" },
+  { value: "lookups",   label: "Lookup-Werte" },
+  { value: "variables", label: "Variablen" },
 ];
 
 export default function ExportPage() {

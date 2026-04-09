@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db/db";
 import { importCsv, type ImportType } from "@/lib/import/import-handler";
 import { randomUUID } from "crypto";
 
-const VALID_TYPES: ImportType[] = ["projects", "devices", "alarms", "emails", "lookups"];
+const VALID_TYPES: ImportType[] = ["projects", "devices", "alarms", "emails", "lookups", "variables"];
 
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
