@@ -7,12 +7,28 @@ interface AuditInfoProps {
   version?: number;
 }
 
+const STATUS_STYLE: Record<string, string> = {
+  inserted: "bg-emerald-100 text-emerald-700",
+  updated:  "bg-blue-100 text-blue-700",
+  locked:   "bg-amber-100 text-amber-700",
+  deleted:  "bg-red-100 text-red-700",
+};
+
 const STATUS_LABEL: Record<string, string> = {
   inserted: "Neu",
   updated:  "Geändert",
   locked:   "Gesperrt",
   deleted:  "Gelöscht",
 };
+
+function Cell({ label, value }: { label: string; value?: string | number }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-400">{label}</span>
+      <span className="text-[10px] font-mono text-gray-500">{value ?? "—"}</span>
+    </div>
+  );
+}
 
 export default function AuditInfo({
   create_user, create_timestamp,
@@ -21,13 +37,25 @@ export default function AuditInfo({
 }: AuditInfoProps) {
   if (!create_user && !modify_user) return null;
 
+  const statusStyle = STATUS_STYLE[modify_status ?? ""] ?? "bg-gray-100 text-gray-500";
+  const statusLabel = STATUS_LABEL[modify_status ?? ""] ?? modify_status ?? "—";
+
   return (
-    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-500 font-mono">
-      <div className="flex flex-wrap gap-x-6 gap-y-1">
-        <span><span className="font-semibold text-gray-400">Erstellt:</span> {create_user} &nbsp;{create_timestamp}</span>
-        <span><span className="font-semibold text-gray-400">Geändert:</span> {modify_user} &nbsp;{modify_timestamp}</span>
-        <span><span className="font-semibold text-gray-400">Status:</span> {STATUS_LABEL[modify_status ?? ""] ?? modify_status}</span>
-        <span><span className="font-semibold text-gray-400">Version:</span> {version}</span>
+    <div className="mt-4 rounded-lg border border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <Cell label="Erstellt von" value={create_user} />
+        <Cell label="Erstellt am"  value={create_timestamp} />
+        <div className="hidden h-6 w-px bg-gray-200 sm:block" />
+        <Cell label="Geändert von" value={modify_user} />
+        <Cell label="Geändert am"  value={modify_timestamp} />
+        <div className="hidden h-6 w-px bg-gray-200 sm:block" />
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-400">Status</span>
+          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusStyle}`}>
+            {statusLabel}
+          </span>
+        </div>
+        <Cell label="Version" value={version} />
       </div>
     </div>
   );
