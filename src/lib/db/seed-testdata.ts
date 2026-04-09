@@ -63,7 +63,7 @@ const projects = [
     alarm_interval_sec: 60, alarm_count_limit: 5,
   },
   {
-    project_name: "SOLARPARK-SÜD",
+    project_name: "SOLARPARK-SUED",
     title: "Solarpark Bayern Süd",
     short_description: "Freiflächen-Solaranlage 20 MWp",
     project_type_code: "2",
@@ -106,9 +106,9 @@ const alarms = [
   { project_name: "WINDPARK-NORD",  alarm_level_code: "KRIT",  alarm_text: "Kritischer Systemfehler – sofortiger Stopp",  severity_rank: 1 },
   { project_name: "WINDPARK-NORD",  alarm_level_code: "WARN",  alarm_text: "Warnung: Grenzwert überschritten",             severity_rank: 2 },
   { project_name: "WINDPARK-NORD",  alarm_level_code: "INFO",  alarm_text: "Information: Wartung fällig",                 severity_rank: 3 },
-  // SOLARPARK-SÜD
-  { project_name: "SOLARPARK-SÜD", alarm_level_code: "KRIT",  alarm_text: "Wechselrichter ausgefallen",                  severity_rank: 1 },
-  { project_name: "SOLARPARK-SÜD", alarm_level_code: "WARN",  alarm_text: "Ertrag unter Schwellwert",                    severity_rank: 2 },
+  // SOLARPARK-SUED
+  { project_name: "SOLARPARK-SUED", alarm_level_code: "KRIT",  alarm_text: "Wechselrichter ausgefallen",                  severity_rank: 1 },
+  { project_name: "SOLARPARK-SUED", alarm_level_code: "WARN",  alarm_text: "Ertrag unter Schwellwert",                    severity_rank: 2 },
   // BIOMASSE-WEST
   { project_name: "BIOMASSE-WEST", alarm_level_code: "KRIT",  alarm_text: "Notabschaltung ausgelöst",                    severity_rank: 1 },
   { project_name: "BIOMASSE-WEST", alarm_level_code: "WARN",  alarm_text: "Temperatur außerhalb Normbereich",            severity_rank: 2 },
@@ -131,8 +131,8 @@ console.log("5. Ziel-E-Mails…");
 const emails = [
   { project_name: "WINDPARK-NORD",  email_address: "noc@windpark-nord.de",      email_purpose: "Alarm",     is_active: 1 },
   { project_name: "WINDPARK-NORD",  email_address: "technik@windpark-nord.de",  email_purpose: "Wartung",   is_active: 1 },
-  { project_name: "SOLARPARK-SÜD", email_address: "alarm@solarpark-sued.de",   email_purpose: "Alarm",     is_active: 1 },
-  { project_name: "SOLARPARK-SÜD", email_address: "report@solarpark-sued.de",  email_purpose: "Report",    is_active: 0 },
+  { project_name: "SOLARPARK-SUED", email_address: "alarm@solarpark-sued.de",   email_purpose: "Alarm",     is_active: 1 },
+  { project_name: "SOLARPARK-SUED", email_address: "report@solarpark-sued.de",  email_purpose: "Report",    is_active: 0 },
   { project_name: "BIOMASSE-WEST", email_address: "betrieb@biomasse-west.de",  email_purpose: "Alarm",     is_active: 1 },
 ];
 
@@ -156,10 +156,10 @@ const devices = [
   { project_name: "WINDPARK-NORD",  device_name: "SENSOR-T1", title: "Temperatursensor Turm 1", device_type_code: "1", status: "active",   limit_min_value: -20, limit_max_value: 60,   alarm_enabled: 0, alarm_level_code: null },
   { project_name: "WINDPARK-NORD",  device_name: "PUMPE-01",  title: "Kühlmittelpumpe",        device_type_code: "3", status: "inactive", limit_min_value: null, limit_max_value: null, alarm_enabled: 0, alarm_level_code: null },
 
-  // SOLARPARK-SÜD
-  { project_name: "SOLARPARK-SÜD", device_name: "INV-01",    title: "Wechselrichter 1",       device_type_code: "5", status: "active",   limit_min_value: 0,   limit_max_value: 5000, alarm_enabled: 0, alarm_level_code: null },
-  { project_name: "SOLARPARK-SÜD", device_name: "INV-02",    title: "Wechselrichter 2",       device_type_code: "5", status: "active",   limit_min_value: 0,   limit_max_value: 5000, alarm_enabled: 1, alarm_level_code: "KRIT" },
-  { project_name: "SOLARPARK-SÜD", device_name: "SENSOR-S1", title: "Strahlungssensor",       device_type_code: "1", status: "active",   limit_min_value: 0,   limit_max_value: 1200, alarm_enabled: 0, alarm_level_code: null },
+  // SOLARPARK-SUED
+  { project_name: "SOLARPARK-SUED", device_name: "INV-01",    title: "Wechselrichter 1",       device_type_code: "5", status: "active",   limit_min_value: 0,   limit_max_value: 5000, alarm_enabled: 0, alarm_level_code: null },
+  { project_name: "SOLARPARK-SUED", device_name: "INV-02",    title: "Wechselrichter 2",       device_type_code: "5", status: "active",   limit_min_value: 0,   limit_max_value: 5000, alarm_enabled: 1, alarm_level_code: "KRIT" },
+  { project_name: "SOLARPARK-SUED", device_name: "SENSOR-S1", title: "Strahlungssensor",       device_type_code: "1", status: "active",   limit_min_value: 0,   limit_max_value: 1200, alarm_enabled: 0, alarm_level_code: null },
 
   // BIOMASSE-WEST
   { project_name: "BIOMASSE-WEST", device_name: "KESSEL-01", title: "Dampfkessel 1",          device_type_code: "2", status: "active",   limit_min_value: 50,  limit_max_value: 180,  alarm_enabled: 0, alarm_level_code: null },

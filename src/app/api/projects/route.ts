@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
   const body: ProjectInput = await request.json();
 
   if (!body.project_name?.trim()) return Response.json({ error: "ProjektName ist Pflichtfeld" }, { status: 400 });
+  if (!/^[A-Za-z0-9_-]+$/.test(body.project_name)) return Response.json({ error: "ProjektName darf nur Buchstaben (A-Z), Ziffern, Bindestrich und Unterstrich enthalten (keine Umlaute oder Sonderzeichen)" }, { status: 400 });
   if (!body.title?.trim())        return Response.json({ error: "Bezeichnung ist Pflichtfeld" }, { status: 400 });
 
   const audit = auditInsert(session.user.email);

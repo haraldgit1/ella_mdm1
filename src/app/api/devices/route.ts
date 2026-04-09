@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
 
   if (!body.project_name?.trim())    return Response.json({ error: "ProjektName ist Pflichtfeld" }, { status: 400 });
   if (!body.device_name?.trim())     return Response.json({ error: "DeviceName ist Pflichtfeld" }, { status: 400 });
+  if (!/^[A-Za-z0-9_-]+$/.test(body.device_name)) return Response.json({ error: "DeviceName darf nur Buchstaben (A-Z), Ziffern, Bindestrich und Unterstrich enthalten (keine Umlaute oder Sonderzeichen)" }, { status: 400 });
   if (!body.title?.trim())           return Response.json({ error: "Bezeichnung ist Pflichtfeld" }, { status: 400 });
   if (!body.device_type_code?.trim()) return Response.json({ error: "Typ ist Pflichtfeld" }, { status: 400 });
 

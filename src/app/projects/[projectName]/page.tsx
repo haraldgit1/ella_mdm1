@@ -87,8 +87,12 @@ export default function ProjectDetailPage({
 
   async function handleSave() {
     setError("");
-    setSaving(true);
     const actAsNew = isNew || isCopy;
+    if (actAsNew && form.project_name && !/^[A-Za-z0-9_-]+$/.test(form.project_name)) {
+      setError("ProjektName darf nur Buchstaben (A-Z), Ziffern, Bindestrich und Unterstrich enthalten (keine Umlaute oder Sonderzeichen)");
+      return;
+    }
+    setSaving(true);
     const method = actAsNew ? "POST" : "PUT";
     const url = actAsNew ? "/api/projects" : `/api/projects/${encodeURIComponent(projectName)}`;
     const res = await fetch(url, {

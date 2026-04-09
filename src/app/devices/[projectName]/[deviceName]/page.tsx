@@ -52,6 +52,10 @@ export default function DeviceDetailPage({
 
   async function handleSave() {
     setError("");
+    if (isNew && form.device_name && !/^[A-Za-z0-9_-]+$/.test(form.device_name)) {
+      setError("DeviceName darf nur Buchstaben (A-Z), Ziffern, Bindestrich und Unterstrich enthalten (keine Umlaute oder Sonderzeichen)");
+      return;
+    }
     setSaving(true);
     const method = isNew ? "POST" : "PUT";
     const url = isNew
