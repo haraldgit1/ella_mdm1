@@ -67,11 +67,9 @@ export default function ProjectDetailPage({
   }, []);
 
   useEffect(() => {
-    if (isNew || isCopy) {
-      fetch("/api/lookups?function=200")
-        .then((r) => r.json())
-        .then((data) => setProjectTypeList(Array.isArray(data) ? data : []));
-    }
+    fetch("/api/lookups?function=200")
+      .then((r) => r.json())
+      .then((data) => setProjectTypeList(Array.isArray(data) ? data : []));
     if (isNew && !isCopy) return;
     fetch(`/api/projects/${encodeURIComponent(projectName)}`)
       .then((r) => r.json())
@@ -250,7 +248,9 @@ export default function ProjectDetailPage({
                     ))}
                   </select>
                 ) : (
-                  <input type="text" value={form.project_type_code ?? ""} disabled className={inp(true)} />
+                  <input type="text"
+                    value={projectTypeList.find((t) => t.code === form.project_type_code)?.description ?? form.project_type_code ?? ""}
+                    disabled className={inp(true)} />
                 )}
               </Field>
             </div>

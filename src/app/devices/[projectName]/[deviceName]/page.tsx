@@ -45,15 +45,13 @@ export default function DeviceDetailPage({
   const isLocked = form.modify_status === "locked";
 
   useEffect(() => {
-    if (isNew || isCopy) {
-      Promise.all([
-        fetch("/api/projects").then((r) => r.json()),
-        fetch("/api/lookups?function=100").then((r) => r.json()),
-      ]).then(([projects, types]) => {
-        setProjectList(Array.isArray(projects) ? projects : []);
-        setDeviceTypeList(Array.isArray(types) ? types : []);
-      });
-    }
+    Promise.all([
+      fetch("/api/projects").then((r) => r.json()),
+      fetch("/api/lookups?function=100").then((r) => r.json()),
+    ]).then(([projects, types]) => {
+      setProjectList(Array.isArray(projects) ? projects : []);
+      setDeviceTypeList(Array.isArray(types) ? types : []);
+    });
     if (isNew && !isCopy) { setLoading(false); return; }
     fetch(`/api/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}`)
       .then((r) => r.json())
@@ -189,7 +187,9 @@ export default function DeviceDetailPage({
                     ))}
                   </select>
                 ) : (
-                  <input type="text" value={form.device_type_code ?? ""} disabled className={inp(true)} />
+                  <input type="text"
+                    value={deviceTypeList.find((t) => t.code === form.device_type_code)?.description ?? form.device_type_code ?? ""}
+                    disabled className={inp(true)} />
                 )}
               </Field>
               <Field label="Status">
