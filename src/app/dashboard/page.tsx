@@ -5,12 +5,13 @@ import Link from "next/link";
 import { authClient } from "@/lib/auth/auth-client";
 
 const NAV_ITEMS = [
-  { label: "Projekte", href: "/projects", icon: "🗂" },
-  { label: "Alarme", href: "/alarms", icon: "🔔" },
-  { label: "Devices", href: "/devices", icon: "📡" },
-  { label: "Reports", href: "/reports", icon: "📊" },
-  { label: "Import", href: "/import", icon: "📥" },
-  { label: "Export", href: "/export", icon: "📤" },
+  { label: "Projekte",   href: "/projects",   icon: "🗂" },
+  { label: "Alarme",     href: "/alarms",     icon: "🔔" },
+  { label: "Devices",    href: "/devices",    icon: "📡" },
+  { label: "Variablen",  href: "/variables",  icon: "📋" },
+  { label: "Reports",    href: "/reports",    icon: "📊" },
+  { label: "Import",     href: "/import",     icon: "📥" },
+  { label: "Export",     href: "/export",     icon: "📤" },
 ];
 
 export default function DashboardPage() {

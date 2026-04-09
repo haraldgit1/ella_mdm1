@@ -41,6 +41,9 @@ const lookups = [
   { function_code: 200, code: "2", description: "Anlage",         function_text: "ProjectType" },
   { function_code: 200, code: "3", description: "Gebäude",        function_text: "ProjectType" },
   { function_code: 200, code: "4", description: "Infrastruktur",  function_text: "ProjectType" },
+  { function_code: 300, code: "1", description: "Bool",           function_text: "DataType" },
+  { function_code: 300, code: "2", description: "Int",            function_text: "DataType" },
+  { function_code: 300, code: "3", description: "Real",           function_text: "DataType" },
 ];
 const insLookup = db.prepare(
   `INSERT OR IGNORE INTO mdm_lookup
@@ -180,7 +183,31 @@ const insDevice = db.prepare(
 db.transaction(() => devices.forEach((d) => insDevice.run({ ...d, u: USER, ts: NOW })))();
 console.log(`   ✓ ${devices.length} Devices`);
 
-// ─── 7. Import-Log (Beispieleintrag) ─────────────────────────────────────────
+// ─── 7. Device-Variablen ─────────────────────────────────────────────────────
+console.log("7. Device-Variablen…");
+const variables = [
+  { project_name: "WINDPARK-NORD",  device_name: "WEA-01",    name: "Leistung",      title: "Aktuelle Leistung",       data_type: "3", offset: "DB10.DBD0",  range: "0..2500",  unit: "kW",  detail_json: null },
+  { project_name: "WINDPARK-NORD",  device_name: "WEA-01",    name: "Drehzahl",      title: "Rotordrehzahl",           data_type: "3", offset: "DB10.DBD4",  range: "0..20",    unit: "rpm", detail_json: null },
+  { project_name: "WINDPARK-NORD",  device_name: "WEA-01",    name: "Betrieb",       title: "Betriebszustand",         data_type: "1", offset: "DB10.DBX0.0",range: null,       unit: null,  detail_json: null },
+  { project_name: "WINDPARK-NORD",  device_name: "SENSOR-T1", name: "Temperatur",    title: "Turmtemperatur",          data_type: "3", offset: "DB20.DBD0",  range: "-20..60",  unit: "°C",  detail_json: null },
+  { project_name: "SOLARPARK-SUED", device_name: "INV-01",    name: "DC-Spannung",   title: "DC-Eingangsspannung",     data_type: "3", offset: "DB30.DBD0",  range: "0..1000",  unit: "V",   detail_json: null },
+  { project_name: "SOLARPARK-SUED", device_name: "INV-01",    name: "AC-Leistung",   title: "AC-Ausgangsleistung",     data_type: "3", offset: "DB30.DBD4",  range: "0..5000",  unit: "W",   detail_json: null },
+  { project_name: "BIOMASSE-WEST",  device_name: "KESSEL-01", name: "Druck",         title: "Kesseldruck",             data_type: "3", offset: "DB40.DBD0",  range: "0..16",    unit: "bar", detail_json: null },
+  { project_name: "BIOMASSE-WEST",  device_name: "KESSEL-01", name: "Temperatur",    title: "Kesseltemperatur",        data_type: "3", offset: "DB40.DBD4",  range: "50..180",  unit: "°C",  detail_json: null },
+  { project_name: "BIOMASSE-WEST",  device_name: "KESSEL-01", name: "Freigabe",      title: "Brenner-Freigabe",        data_type: "1", offset: "DB40.DBX0.0",range: null,       unit: null,  detail_json: null },
+];
+const insVariable = db.prepare(
+  `INSERT OR IGNORE INTO mdm_device_variable
+     (project_name, device_name, name, title, data_type, offset, range, unit, detail_json,
+      create_user, create_timestamp, modify_user, modify_timestamp, modify_status)
+   VALUES
+     (@project_name, @device_name, @name, @title, @data_type, @offset, @range, @unit, @detail_json,
+      @u, @ts, @u, @ts, 'inserted')`
+);
+db.transaction(() => variables.forEach((v) => insVariable.run({ ...v, u: USER, ts: NOW })))();
+console.log(`   ✓ ${variables.length} Variablen`);
+
+// ─── 8. Import-Log (Beispieleintrag) ─────────────────────────────────────────
 console.log("7. Import-Log…");
 db.prepare(
   `INSERT OR IGNORE INTO mdm_import_log

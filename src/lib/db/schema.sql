@@ -143,8 +143,33 @@ CREATE INDEX IF NOT EXISTS idx_device_status       ON mdm_device(status);
 CREATE INDEX IF NOT EXISTS idx_device_project      ON mdm_device(project_name);
 CREATE INDEX IF NOT EXISTS idx_device_modify_status ON mdm_device(modify_status);
 
+CREATE TABLE IF NOT EXISTS mdm_device_variable (
+    project_name          TEXT    NOT NULL,
+    device_name           TEXT    NOT NULL,
+    name                  TEXT    NOT NULL,
+    title                 TEXT    NOT NULL,
+    data_type             TEXT    NOT NULL,
+    offset                TEXT,
+    range                 TEXT,
+    unit                  TEXT,
+    detail_json           TEXT    CHECK (detail_json IS NULL OR json_valid(detail_json)),
+    create_user           TEXT    NOT NULL,
+    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user           TEXT    NOT NULL,
+    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
+                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version               INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (project_name, device_name, name),
+    FOREIGN KEY (project_name, device_name)
+        REFERENCES mdm_device(project_name, device_name)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_alarm_project       ON mdm_project_alarm(project_name);
 CREATE INDEX IF NOT EXISTS idx_email_project       ON mdm_project_email(project_name);
+CREATE INDEX IF NOT EXISTS idx_variable_device     ON mdm_device_variable(project_name, device_name);
 
 -- better-auth Tabellen (user, session, account, verification)
 CREATE TABLE IF NOT EXISTS "user" (

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Device } from "@/types/device";
+import type { DeviceVariable } from "@/types/variable";
 import AuditInfo from "@/components/AuditInfo";
 
-type Tab = "allgemein" | "beschreibung" | "limits" | "alarm" | "technik";
+type Tab = "allgemein" | "beschreibung" | "limits" | "alarm" | "technik" | "variablen";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "allgemein",    label: "Allgemein" },
@@ -13,6 +14,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "limits",       label: "Limits" },
   { key: "alarm",        label: "Alarm" },
   { key: "technik",      label: "Technische Daten" },
+  { key: "variablen",    label: "Variablen" },
 ];
 
 const EMPTY: Partial<Device> = {
@@ -41,16 +43,28 @@ export default function DeviceDetailPage({
 
   const [projectList, setProjectList] = useState<{ project_name: string; title: string }[]>([]);
   const [deviceTypeList, setDeviceTypeList] = useState<{ code: string; description: string }[]>([]);
+  const [dataTypeList, setDataTypeList] = useState<{ code: string; description: string }[]>([]);
+
+  const [variables, setVariables] = useState<DeviceVariable[]>([]);
+  const [newVar, setNewVar] = useState({ name: "", title: "", data_type: "", offset: "", range: "", unit: "" });
+  const [varError, setVarError] = useState("");
 
   const isLocked = form.modify_status === "locked";
+
+  const loadVariables = useCallback(async (pn: string, dn: string) => {
+    const res = await fetch(`/api/variables?project_name=${encodeURIComponent(pn)}&device_name=${encodeURIComponent(dn)}`);
+    if (res.ok) setVariables(await res.json());
+  }, []);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/projects").then((r) => r.json()),
       fetch("/api/lookups?function=100").then((r) => r.json()),
-    ]).then(([projects, types]) => {
+      fetch("/api/lookups?function=300").then((r) => r.json()),
+    ]).then(([projects, types, dataTypes]) => {
       setProjectList(Array.isArray(projects) ? projects : []);
       setDeviceTypeList(Array.isArray(types) ? types : []);
+      setDataTypeList(Array.isArray(dataTypes) ? dataTypes : []);
     });
     if (isNew && !isCopy) { setLoading(false); return; }
     fetch(`/api/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}`)
@@ -60,11 +74,12 @@ export default function DeviceDetailPage({
           setForm({ ...data, device_name: `${data.device_name}_KOPIE`, modify_status: undefined });
         } else {
           setForm(data);
+          loadVariables(projectName, deviceName);
         }
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [projectName, deviceName, isNew, isCopy]);
+  }, [projectName, deviceName, isNew, isCopy, loadVariables]);
 
   function set(field: keyof Device, value: string | number | undefined) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -120,6 +135,37 @@ export default function DeviceDetailPage({
 
   function handleCopy() {
     router.push(`/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}?copy=1`);
+  }
+
+  async function handleAddVariable(e: React.FormEvent) {
+    e.preventDefault();
+    setVarError("");
+    const res = await fetch("/api/variables", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_name: projectName,
+        device_name: deviceName,
+        name: newVar.name,
+        title: newVar.title,
+        data_type: newVar.data_type,
+        offset: newVar.offset || null,
+        range: newVar.range || null,
+        unit: newVar.unit || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setVarError(data.error ?? "Fehler"); return; }
+    setNewVar({ name: "", title: "", data_type: "", offset: "", range: "", unit: "" });
+    loadVariables(projectName, deviceName);
+  }
+
+  async function handleDeleteVariable(name: string) {
+    await fetch(
+      `/api/variables/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}/${encodeURIComponent(name)}`,
+      { method: "DELETE" }
+    );
+    loadVariables(projectName, deviceName);
   }
 
   if (loading) {
@@ -249,6 +295,95 @@ export default function DeviceDetailPage({
                 disabled={isLocked} placeholder={'{\n  "unit": "°C",\n  "plcTag": "DB10.DBW2"\n}'}
                 className={inp(isLocked) + " resize-none font-mono text-xs"} />
             </Field>
+          )}
+
+          {tab === "variablen" && !isNew && !isCopy && (
+            <div className="flex flex-col gap-4">
+              {variables.length === 0 ? (
+                <p className="text-sm text-gray-400">Keine Variablen vorhanden.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="pb-2 pr-3">Name</th>
+                      <th className="pb-2 pr-3">Bezeichnung</th>
+                      <th className="pb-2 pr-3">DataType</th>
+                      <th className="pb-2 pr-3">Offset</th>
+                      <th className="pb-2 pr-3">Wertebereich</th>
+                      <th className="pb-2 pr-3">Einheit</th>
+                      {!isLocked && <th className="pb-2"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variables.map((v) => (
+                      <tr key={v.name} className="border-b border-gray-100 last:border-0">
+                        <td className="py-2 pr-3 font-medium text-blue-700">{v.name}</td>
+                        <td className="py-2 pr-3">{v.title}</td>
+                        <td className="py-2 pr-3 text-gray-500">
+                          {dataTypeList.find((t) => t.code === v.data_type)?.description ?? v.data_type}
+                        </td>
+                        <td className="py-2 pr-3 font-mono text-gray-500 text-xs">{v.offset ?? "—"}</td>
+                        <td className="py-2 pr-3 text-gray-500">{v.range ?? "—"}</td>
+                        <td className="py-2 pr-3 text-gray-500">{v.unit ?? "—"}</td>
+                        {!isLocked && (
+                          <td className="py-2">
+                            <button onClick={() => handleDeleteVariable(v.name)}
+                              className="text-xs text-red-500 hover:text-red-700">Löschen</button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {!isLocked && (
+                <form onSubmit={handleAddVariable} className="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
+                  <Field label="Name *">
+                    <input type="text" value={newVar.name}
+                      onChange={(e) => setNewVar((p) => ({ ...p, name: e.target.value }))}
+                      className="w-28 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="Bezeichnung *">
+                    <input type="text" value={newVar.title}
+                      onChange={(e) => setNewVar((p) => ({ ...p, title: e.target.value }))}
+                      className="w-44 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="DataType *">
+                    <select value={newVar.data_type}
+                      onChange={(e) => setNewVar((p) => ({ ...p, data_type: e.target.value }))}
+                      className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500">
+                      <option value="">—</option>
+                      {dataTypeList.map((t) => (
+                        <option key={t.code} value={t.code}>{t.description}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Offset">
+                    <input type="text" value={newVar.offset}
+                      onChange={(e) => setNewVar((p) => ({ ...p, offset: e.target.value }))}
+                      placeholder="DB10.DBD0"
+                      className="w-28 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="Wertebereich">
+                    <input type="text" value={newVar.range}
+                      onChange={(e) => setNewVar((p) => ({ ...p, range: e.target.value }))}
+                      placeholder="0..100"
+                      className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <Field label="Einheit">
+                    <input type="text" value={newVar.unit}
+                      onChange={(e) => setNewVar((p) => ({ ...p, unit: e.target.value }))}
+                      placeholder="kW"
+                      className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                  </Field>
+                  <button type="submit"
+                    className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+                    Hinzufügen
+                  </button>
+                  {varError && <p className="w-full text-xs text-red-600">{varError}</p>}
+                </form>
+              )}
+            </div>
           )}
         </div>
 
