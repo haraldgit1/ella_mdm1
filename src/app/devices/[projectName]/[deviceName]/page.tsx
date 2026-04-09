@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Device } from "@/types/device";
+import AuditInfo from "@/components/AuditInfo";
 
 type Tab = "allgemein" | "beschreibung" | "limits" | "alarm" | "technik";
 
@@ -256,6 +257,14 @@ export default function DeviceDetailPage({
             </Field>
           )}
         </div>
+
+        {!isNew && !isCopy && (
+          <AuditInfo
+            create_user={form.create_user} create_timestamp={form.create_timestamp}
+            modify_user={form.modify_user} modify_timestamp={form.modify_timestamp}
+            modify_status={form.modify_status} version={form.version}
+          />
+        )}
 
         {error && (
           <p className="mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>

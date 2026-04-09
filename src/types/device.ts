@@ -18,6 +18,7 @@ export interface Device {
   modify_user: string;
   modify_timestamp: string;
   modify_status: ModifyStatus;
+  version: number;
 }
 
 export type DeviceInput = Pick<

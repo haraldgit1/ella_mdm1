@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Project } from "@/types/project";
 import type { ProjectAlarm } from "@/types/alarm";
 import type { ProjectEmail } from "@/types/email";
+import AuditInfo from "@/components/AuditInfo";
 
 type Tab = "allgemein" | "adresse" | "technik" | "alarmstufen" | "emails";
 
@@ -424,6 +425,14 @@ export default function ProjectDetailPage({
             </div>
           )}
         </div>
+
+        {!isNew && !isCopy && (
+          <AuditInfo
+            create_user={form.create_user} create_timestamp={form.create_timestamp}
+            modify_user={form.modify_user} modify_timestamp={form.modify_timestamp}
+            modify_status={form.modify_status} version={form.version}
+          />
+        )}
 
         {/* Fehlermeldung */}
         {error && (
