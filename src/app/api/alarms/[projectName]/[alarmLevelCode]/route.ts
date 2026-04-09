@@ -19,7 +19,8 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
     .prepare(
       `UPDATE mdm_project_alarm
        SET alarm_text=@alarm_text, severity_rank=@severity_rank,
-           modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
+           modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+           modify_status=@modify_status, version=version+1
        WHERE project_name=@project_name AND alarm_level_code=@alarm_level_code
          AND modify_status != 'deleted'`
     )
@@ -44,7 +45,8 @@ export async function DELETE(request: NextRequest, ctx: Ctx) {
 
   const result = getDb().prepare(
     `UPDATE mdm_project_alarm
-     SET modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
+     SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+         modify_status=@modify_status, version=version+1
      WHERE project_name=@project_name AND alarm_level_code=@alarm_level_code
        AND modify_status != 'deleted'`
   ).run({ ...audit, project_name: decodeURIComponent(projectName), alarm_level_code: decodeURIComponent(alarmLevelCode) });

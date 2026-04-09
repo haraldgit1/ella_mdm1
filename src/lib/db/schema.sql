@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS mdm_lookup (
     modify_timestamp   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modify_status      TEXT    NOT NULL DEFAULT 'inserted'
                               CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version            INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (function_code, code)
 );
 
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS mdm_project (
     modify_timestamp       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modify_status          TEXT    NOT NULL DEFAULT 'inserted'
                                   CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version                INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (project_name)
 );
 
@@ -59,6 +61,7 @@ CREATE TABLE IF NOT EXISTS mdm_device (
     modify_timestamp         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modify_status            TEXT    NOT NULL DEFAULT 'inserted'
                                      CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version                  INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (project_name, device_name),
     FOREIGN KEY (project_name)
         REFERENCES mdm_project(project_name)
@@ -77,6 +80,7 @@ CREATE TABLE IF NOT EXISTS mdm_project_alarm (
     modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modify_status         TEXT    NOT NULL DEFAULT 'inserted'
                                  CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version               INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (project_name, alarm_level_code),
     FOREIGN KEY (project_name)
         REFERENCES mdm_project(project_name)
@@ -95,6 +99,7 @@ CREATE TABLE IF NOT EXISTS mdm_project_email (
     modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modify_status         TEXT    NOT NULL DEFAULT 'inserted'
                                  CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version               INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (project_name, email_address),
     FOREIGN KEY (project_name)
         REFERENCES mdm_project(project_name)

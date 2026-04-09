@@ -6,6 +6,7 @@ export function auditInsert(user: string) {
     modify_user: user,
     modify_timestamp: now,
     modify_status: "inserted" as const,
+    version: 1,
   };
 }
 

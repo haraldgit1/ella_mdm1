@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   const rows = getDb()
     .prepare(
-      `SELECT project_name, alarm_level_code, alarm_text, severity_rank, modify_status
+      `SELECT project_name, alarm_level_code, alarm_text, severity_rank, modify_status, version
        FROM mdm_project_alarm
        WHERE ${conditions.join(" AND ")}
        ORDER BY project_name, severity_rank, alarm_level_code`
@@ -48,10 +48,10 @@ export async function POST(request: NextRequest) {
     getDb().prepare(
       `INSERT INTO mdm_project_alarm
         (project_name, alarm_level_code, alarm_text, severity_rank,
-         create_user, create_timestamp, modify_user, modify_timestamp, modify_status)
+         create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version)
        VALUES
         (@project_name, @alarm_level_code, @alarm_text, @severity_rank,
-         @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status)`
+         @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status, @version)`
     ).run({ ...body, severity_rank: body.severity_rank ?? null, ...audit });
 
     return Response.json({ ok: true }, { status: 201 });

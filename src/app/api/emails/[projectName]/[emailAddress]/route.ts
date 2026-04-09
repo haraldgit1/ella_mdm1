@@ -14,7 +14,8 @@ export async function DELETE(request: NextRequest, ctx: Ctx) {
 
   getDb().prepare(
     `UPDATE mdm_project_email
-     SET modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
+     SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+         modify_status=@modify_status, version=version+1
      WHERE project_name=@project_name AND email_address=@email_address`
   ).run({ ...audit, project_name: projectName, email_address: decodeURIComponent(emailAddress) });
 

@@ -11,9 +11,7 @@ export async function GET(request: NextRequest, ctx: Ctx) {
   if (!session) return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const { projectName } = await ctx.params;
-  const db = getDb();
-
-  const row = db
+  const row = getDb()
     .prepare("SELECT * FROM mdm_project WHERE project_name = ?")
     .get(projectName);
 
@@ -38,8 +36,10 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
   if (body.action === "lock") {
     const audit = auditLock(session.user.email);
     db.prepare(
-      `UPDATE mdm_project SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
-       modify_status=@modify_status WHERE project_name=@project_name`
+      `UPDATE mdm_project
+       SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+           modify_status=@modify_status, version=version+1
+       WHERE project_name=@project_name`
     ).run({ ...audit, project_name: projectName });
     return Response.json({ project_name: projectName });
   }
@@ -47,15 +47,15 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
   if (body.action === "unlock") {
     const audit = auditUpdate(session.user.email);
     db.prepare(
-      `UPDATE mdm_project SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
-       modify_status=@modify_status WHERE project_name=@project_name`
+      `UPDATE mdm_project
+       SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+           modify_status=@modify_status, version=version+1
+       WHERE project_name=@project_name`
     ).run({ ...audit, project_name: projectName });
     return Response.json({ project_name: projectName });
   }
 
-  if (!body.title?.trim()) {
-    return Response.json({ error: "Bezeichnung ist Pflichtfeld" }, { status: 400 });
-  }
+  if (!body.title?.trim()) return Response.json({ error: "Bezeichnung ist Pflichtfeld" }, { status: 400 });
 
   const audit = auditUpdate(session.user.email);
   db.prepare(
@@ -67,7 +67,8 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
       primary_ip_address=@primary_ip_address, secondary_ip_address=@secondary_ip_address,
       alarm_interval_sec=@alarm_interval_sec, alarm_count_limit=@alarm_count_limit,
       technical_json=@technical_json,
-      modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
+      modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+      modify_status=@modify_status, version=version+1
      WHERE project_name=@project_name`
   ).run({ ...body, ...audit, project_name: projectName });
 
@@ -79,18 +80,18 @@ export async function DELETE(request: NextRequest, ctx: Ctx) {
   if (!session) return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const { projectName } = await ctx.params;
-  const db = getDb();
-
-  const existing = db
+  const existing = getDb()
     .prepare("SELECT modify_status FROM mdm_project WHERE project_name = ?")
-    .get(projectName) as { modify_status: string } | undefined;
+    .get(projectName);
 
   if (!existing) return Response.json({ error: "Projekt nicht gefunden" }, { status: 404 });
 
   const audit = auditDelete(session.user.email);
-  db.prepare(
-    `UPDATE mdm_project SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
-     modify_status=@modify_status WHERE project_name=@project_name`
+  getDb().prepare(
+    `UPDATE mdm_project
+     SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+         modify_status=@modify_status, version=version+1
+     WHERE project_name=@project_name`
   ).run({ ...audit, project_name: projectName });
 
   return Response.json({ project_name: projectName });

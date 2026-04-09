@@ -43,10 +43,10 @@ export async function POST(request: NextRequest) {
     getDb().prepare(
       `INSERT INTO mdm_project_email
         (project_name, email_address, email_purpose, is_active,
-         create_user, create_timestamp, modify_user, modify_timestamp, modify_status)
+         create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version)
        VALUES
         (@project_name, @email_address, @email_purpose, @is_active,
-         @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status)`
+         @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status, @version)`
     ).run({ email_purpose: null, is_active: 1, ...body, ...audit });
 
     return Response.json({ ok: true }, { status: 201 });
