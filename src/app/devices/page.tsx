@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface DeviceRow {
@@ -19,30 +19,62 @@ const STATUS_LABEL: Record<string, string> = {
   inactive: "Inaktiv",
 };
 
+const LAST_CLICKED_KEY = "devices_last_clicked";
+
 export default function DevicesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [search, setSearch] = useState({
-    project_name: "",
-    device_name: "",
-    title: "",
-    device_type_code: "",
-    status: "",
-    alarm_enabled: "",
+    project_name:    searchParams.get("project_name")    ?? "",
+    device_name:     searchParams.get("device_name")     ?? "",
+    title:           searchParams.get("title")           ?? "",
+    device_type_code:searchParams.get("device_type_code")?? "",
+    status:          searchParams.get("status")          ?? "",
+    alarm_enabled:   searchParams.get("alarm_enabled")   ?? "",
   });
   const [results, setResults] = useState<DeviceRow[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  function set(field: keyof typeof search, value: string) {
-    setSearch((prev) => ({ ...prev, [field]: value }));
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+
+  function rowKey(row: DeviceRow) {
+    return `${row.project_name}/${row.device_name}`;
   }
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
+  // Beim Laden: falls URL-Parameter vorhanden, Suche automatisch ausführen
+  useEffect(() => {
+    if (searchParams.get("searched")) {
+      const s = {
+        project_name:     searchParams.get("project_name")     ?? "",
+        device_name:      searchParams.get("device_name")      ?? "",
+        title:            searchParams.get("title")            ?? "",
+        device_type_code: searchParams.get("device_type_code") ?? "",
+        status:           searchParams.get("status")           ?? "",
+        alarm_enabled:    searchParams.get("alarm_enabled")    ?? "",
+      };
+      runSearch(s);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Nach dem Rendern der Liste: zur zuletzt angeklickten Zeile scrollen
+  useEffect(() => {
+    if (!searched) return;
+    const lastClicked = sessionStorage.getItem(LAST_CLICKED_KEY);
+    if (lastClicked && rowRefs.current[lastClicked]) {
+      setHighlighted(lastClicked);
+      rowRefs.current[lastClicked]?.scrollIntoView({ block: "center", behavior: "instant" });
+      sessionStorage.removeItem(LAST_CLICKED_KEY);
+    }
+  }, [searched, results]);
+
+  async function runSearch(s: typeof search) {
     setLoading(true);
     const params = new URLSearchParams();
-    Object.entries(search).forEach(([k, v]) => { if (v) params.set(k, v); });
-
+    Object.entries(s).forEach(([k, v]) => { if (v) params.set(k, v); });
     const res = await fetch(`/api/devices?${params}`);
     const data = await res.json();
     setResults(Array.isArray(data) ? data : []);
@@ -50,8 +82,23 @@ export default function DevicesPage() {
     setLoading(false);
   }
 
-  function deviceUrl(row: DeviceRow) {
-    return `/devices/${encodeURIComponent(row.project_name)}/${encodeURIComponent(row.device_name)}`;
+  function set(field: keyof typeof search, value: string) {
+    setSearch((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    Object.entries(search).forEach(([k, v]) => { if (v) params.set(k, v); });
+    params.set("searched", "1");
+    router.replace(`/devices?${params}`);
+    await runSearch(search);
+  }
+
+  function handleRowClick(row: DeviceRow) {
+    setHighlighted(rowKey(row));
+    sessionStorage.setItem(LAST_CLICKED_KEY, rowKey(row));
+    router.push(`/devices/${encodeURIComponent(row.project_name)}/${encodeURIComponent(row.device_name)}`);
   }
 
   return (
@@ -134,19 +181,30 @@ export default function DevicesPage() {
                 </thead>
                 <tbody>
                   {results.map((row) => (
-                    <tr key={`${row.project_name}/${row.device_name}`}
-                      onClick={() => router.push(deviceUrl(row))}
-                      className="cursor-pointer border-b border-gray-100 hover:bg-blue-50 last:border-0">
-                      <td className="px-4 py-3 text-gray-500">{row.project_name}</td>
-                      <td className="px-4 py-3 font-medium text-blue-700">{row.device_name}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.title}</td>
+                    <tr
+                      key={rowKey(row)}
+                      ref={(el) => { rowRefs.current[rowKey(row)] = el; }}
+                      onClick={() => handleRowClick(row)}
+                      className={`cursor-pointer border-b border-gray-100 last:border-0 ${
+                        highlighted === rowKey(row)
+                          ? "bg-blue-100"
+                          : "hover:bg-blue-50"
+                      }`}
+                    >
+                      <td className={`px-4 py-3 ${highlighted === rowKey(row) ? "font-semibold text-gray-900" : "text-gray-500"}`}>{row.project_name}</td>
+                      <td className={`px-4 py-3 text-blue-700 ${highlighted === rowKey(row) ? "font-bold" : "font-medium"}`}>{row.device_name}</td>
+                      <td className={`px-4 py-3 ${highlighted === rowKey(row) ? "font-semibold text-gray-900" : "text-gray-700"}`}>{row.title}</td>
                       <td className="px-4 py-3 text-gray-500">{row.device_type_code}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                          row.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-                        }`}>
-                          {STATUS_LABEL[row.status] ?? row.status}
-                        </span>
+                        {row.modify_status === "locked" ? (
+                          <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">Gesperrt</span>
+                        ) : (
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                            row.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                          }`}>
+                            {STATUS_LABEL[row.status] ?? row.status}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${

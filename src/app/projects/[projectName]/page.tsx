@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, use, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Project } from "@/types/project";
 import type { ProjectAlarm } from "@/types/alarm";
 import type { ProjectEmail } from "@/types/email";
@@ -31,11 +30,13 @@ export default function ProjectDetailPage({
 }) {
   const { projectName } = use(params);
   const isNew = projectName === "new";
+  const searchParams = useSearchParams();
+  const isCopy = searchParams.get("copy") === "1";
   const router = useRouter();
 
   const [form, setForm] = useState<Partial<Project>>(EMPTY);
   const [tab, setTab] = useState<Tab>("allgemein");
-  const [loading, setLoading] = useState(!isNew);
+  const [loading, setLoading] = useState(!isNew || isCopy);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -53,7 +54,7 @@ export default function ProjectDetailPage({
   const isLocked = form.modify_status === "locked";
 
   const loadAlarms = useCallback(async (name: string) => {
-    const res = await fetch(`/api/alarms?projectName=${encodeURIComponent(name)}`);
+    const res = await fetch(`/api/alarms?project_name=${encodeURIComponent(name)}`);
     if (res.ok) setAlarms(await res.json());
   }, []);
 
@@ -63,17 +64,22 @@ export default function ProjectDetailPage({
   }, []);
 
   useEffect(() => {
-    if (isNew) return;
+    if (isNew && !isCopy) return;
     fetch(`/api/projects/${encodeURIComponent(projectName)}`)
       .then((r) => r.json())
       .then((data) => {
-        setForm(data);
+        if (isCopy) {
+          // Kopie-Modus: Daten übernehmen, ProjektName editierbar mit _KOPIE-Vorschlag
+          setForm({ ...data, project_name: `${data.project_name}_KOPIE`, modify_status: undefined });
+        } else {
+          setForm(data);
+          loadAlarms(projectName);
+          loadEmails(projectName);
+        }
         setLoading(false);
-        loadAlarms(projectName);
-        loadEmails(projectName);
       })
       .catch(() => setLoading(false));
-  }, [projectName, isNew, loadAlarms, loadEmails]);
+  }, [projectName, isNew, isCopy, loadAlarms, loadEmails]);
 
   function set(field: keyof Project, value: string | number | undefined) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -82,8 +88,9 @@ export default function ProjectDetailPage({
   async function handleSave() {
     setError("");
     setSaving(true);
-    const method = isNew ? "POST" : "PUT";
-    const url = isNew ? "/api/projects" : `/api/projects/${encodeURIComponent(projectName)}`;
+    const actAsNew = isNew || isCopy;
+    const method = actAsNew ? "POST" : "PUT";
+    const url = actAsNew ? "/api/projects" : `/api/projects/${encodeURIComponent(projectName)}`;
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -92,7 +99,7 @@ export default function ProjectDetailPage({
     const data = await res.json();
     setSaving(false);
     if (!res.ok) { setError(data.error ?? "Fehler"); return; }
-    if (isNew) router.replace(`/projects/${encodeURIComponent(data.project_name)}`);
+    if (actAsNew) router.replace(`/projects/${encodeURIComponent(data.project_name)}`);
   }
 
   async function handleDelete() {
@@ -109,15 +116,17 @@ export default function ProjectDetailPage({
     if (res.ok) setForm((f) => ({ ...f, modify_status: "locked" }));
   }
 
-  async function handleCopy() {
-    const copy = { ...form, project_name: `${form.project_name}_KOPIE` };
-    const res = await fetch("/api/projects", {
-      method: "POST",
+  async function handleUnlock() {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectName)}`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(copy),
+      body: JSON.stringify({ action: "unlock" }),
     });
-    const data = await res.json();
-    if (res.ok) router.push(`/projects/${encodeURIComponent(data.project_name)}`);
+    if (res.ok) setForm((f) => ({ ...f, modify_status: "updated" }));
+  }
+
+  function handleCopy() {
+    router.push(`/projects/${encodeURIComponent(projectName)}?copy=1`);
   }
 
   async function handleAddAlarm(e: React.FormEvent) {
@@ -180,9 +189,9 @@ export default function ProjectDetailPage({
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
         <div className="flex items-center gap-4">
-          <Link href="/projects" className="text-sm text-gray-500 hover:text-gray-700">← Projekte</Link>
+          <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-700">← Projekte</button>
           <h1 className="text-lg font-semibold text-gray-900">
-            {isNew ? "Neues Projekt" : form.project_name}
+            {isNew ? "Neues Projekt" : isCopy ? `Kopie von ${projectName}` : form.project_name}
           </h1>
           {isLocked && (
             <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">Gesperrt</span>
@@ -193,7 +202,7 @@ export default function ProjectDetailPage({
       <main className="flex flex-1 flex-col gap-0 p-6">
         {/* Tabs */}
         <div className="flex border-b border-gray-200 bg-white px-6">
-          {TABS.filter((t) => !isNew || t.key === "allgemein" || t.key === "adresse" || t.key === "technik").map((t) => (
+          {TABS.filter((t) => !(isNew || isCopy) || t.key === "allgemein" || t.key === "adresse" || t.key === "technik").map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                 tab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
@@ -209,7 +218,7 @@ export default function ProjectDetailPage({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="ProjektName *">
                 <input type="text" value={form.project_name ?? ""} onChange={(e) => set("project_name", e.target.value)}
-                  disabled={!isNew || isLocked} className={inp(!isNew || isLocked)} />
+                  disabled={(!isNew && !isCopy) || isLocked} className={inp((!isNew && !isCopy) || isLocked)} />
               </Field>
               <Field label="Bezeichnung *">
                 <input type="text" value={form.title ?? ""} onChange={(e) => set("title", e.target.value)}
@@ -413,29 +422,29 @@ export default function ProjectDetailPage({
         {/* Aktionsbuttons — nur für Hauptformular (nicht für Sub-Tabs) */}
         {(tab === "allgemein" || tab === "adresse" || tab === "technik") && (
           <div className="mt-4 flex items-center justify-between">
-            <button onClick={() => router.push("/projects")}
+            <button onClick={() => router.back()}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
               Abbrechen
             </button>
             <div className="flex gap-2">
-              {!isNew && !isLocked && (
-                <button onClick={handleLock} className="rounded-lg border border-yellow-400 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50">Sperren</button>
+              {!isNew && !isCopy && (
+                isLocked
+                  ? <button onClick={handleUnlock} className="rounded-lg border border-green-500 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50">Freigabe</button>
+                  : <button onClick={handleLock} className="rounded-lg border border-yellow-400 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50">Sperren</button>
               )}
-              {!isNew && !isLocked && (
+              {!isNew && !isCopy && (
                 <button onClick={() => setConfirmDelete(true)} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Löschen</button>
               )}
-              {!isNew && !isLocked && (
+              {!isNew && !isCopy && (
                 <button onClick={handleCopy} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Kopieren</button>
               )}
-              {isNew && (
+              {(isNew || isCopy) && (
                 <button onClick={() => setForm(EMPTY)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Neuanlage</button>
               )}
-              {!isLocked && (
-                <button onClick={handleSave} disabled={saving}
-                  className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? "Speichert…" : "Speichern"}
-                </button>
-              )}
+              <button onClick={handleSave} disabled={saving}
+                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                {saving ? "Speichert…" : "Speichern"}
+              </button>
             </div>
           </div>
         )}

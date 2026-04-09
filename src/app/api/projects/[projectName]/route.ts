@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
   if (!session) return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const { projectName } = await ctx.params;
-  const body: Partial<ProjectInput> & { action?: "lock" } = await request.json();
+  const body: Partial<ProjectInput> & { action?: "lock" | "unlock" } = await request.json();
   const db = getDb();
 
   const existing = db
@@ -34,12 +34,18 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
     .get(projectName) as { modify_status: string } | undefined;
 
   if (!existing) return Response.json({ error: "Projekt nicht gefunden" }, { status: 404 });
-  if (existing.modify_status === "locked") {
-    return Response.json({ error: "Projekt ist gesperrt" }, { status: 409 });
-  }
 
   if (body.action === "lock") {
     const audit = auditLock(session.user.email);
+    db.prepare(
+      `UPDATE mdm_project SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+       modify_status=@modify_status WHERE project_name=@project_name`
+    ).run({ ...audit, project_name: projectName });
+    return Response.json({ project_name: projectName });
+  }
+
+  if (body.action === "unlock") {
+    const audit = auditUpdate(session.user.email);
     db.prepare(
       `UPDATE mdm_project SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
        modify_status=@modify_status WHERE project_name=@project_name`

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import type { Device } from "@/types/device";
 
 type Tab = "allgemein" | "beschreibung" | "limits" | "alarm" | "technik";
@@ -86,6 +85,14 @@ export default function DeviceDetailPage({
     if (res.ok) setForm((f) => ({ ...f, modify_status: "locked" }));
   }
 
+  async function handleUnlock() {
+    const res = await fetch(
+      `/api/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "unlock" }) }
+    );
+    if (res.ok) setForm((f) => ({ ...f, modify_status: "updated" }));
+  }
+
   async function handleCopy() {
     const copy = { ...form, device_name: `${form.device_name}_KOPIE` };
     const res = await fetch("/api/devices", {
@@ -105,7 +112,7 @@ export default function DeviceDetailPage({
     <div className="flex min-h-screen flex-col bg-gray-50">
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
         <div className="flex items-center gap-4">
-          <Link href="/devices" className="text-sm text-gray-500 hover:text-gray-700">← Devices</Link>
+          <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-700">← Devices</button>
           <h1 className="text-lg font-semibold text-gray-900">
             {isNew ? "Neues Device" : `${form.project_name} / ${form.device_name}`}
           </h1>
@@ -227,29 +234,29 @@ export default function DeviceDetailPage({
 
         {/* Aktionsbuttons */}
         <div className="mt-4 flex items-center justify-between">
-          <button onClick={() => router.push("/devices")}
+          <button onClick={() => router.back()}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
             Abbrechen
           </button>
           <div className="flex gap-2">
-            {!isNew && !isLocked && (
-              <button onClick={handleLock} className="rounded-lg border border-yellow-400 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50">Sperren</button>
+            {!isNew && (
+              isLocked
+                ? <button onClick={handleUnlock} className="rounded-lg border border-green-500 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50">Freigabe</button>
+                : <button onClick={handleLock} className="rounded-lg border border-yellow-400 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50">Sperren</button>
             )}
-            {!isNew && !isLocked && (
+            {!isNew && (
               <button onClick={() => setConfirmDelete(true)} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">Löschen</button>
             )}
-            {!isNew && !isLocked && (
+            {!isNew && (
               <button onClick={handleCopy} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Kopieren</button>
             )}
             {isNew && (
               <button onClick={() => setForm(EMPTY)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Neuanlage</button>
             )}
-            {!isLocked && (
-              <button onClick={handleSave} disabled={saving}
-                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-                {saving ? "Speichert…" : "Speichern"}
-              </button>
-            )}
+            <button onClick={handleSave} disabled={saving}
+              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              {saving ? "Speichert…" : "Speichern"}
+            </button>
           </div>
         </div>
       </main>

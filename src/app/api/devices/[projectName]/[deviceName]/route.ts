@@ -26,7 +26,7 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
   if (!session) return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const { projectName, deviceName } = await ctx.params;
-  const body: Partial<DeviceInput> & { action?: "lock" } = await request.json();
+  const body: Partial<DeviceInput> & { action?: "lock" | "unlock" } = await request.json();
   const db = getDb();
 
   const existing = db.prepare(
@@ -34,10 +34,18 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
   ).get(projectName, deviceName) as { modify_status: string } | undefined;
 
   if (!existing) return Response.json({ error: "Device nicht gefunden" }, { status: 404 });
-  if (existing.modify_status === "locked") return Response.json({ error: "Device ist gesperrt" }, { status: 409 });
 
   if (body.action === "lock") {
     const audit = auditLock(session.user.email);
+    db.prepare(
+      `UPDATE mdm_device SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
+       modify_status=@modify_status WHERE project_name=@project_name AND device_name=@device_name`
+    ).run({ ...audit, project_name: projectName, device_name: deviceName });
+    return Response.json({ project_name: projectName, device_name: deviceName });
+  }
+
+  if (body.action === "unlock") {
+    const audit = auditUpdate(session.user.email);
     db.prepare(
       `UPDATE mdm_device SET modify_user=@modify_user, modify_timestamp=@modify_timestamp,
        modify_status=@modify_status WHERE project_name=@project_name AND device_name=@device_name`

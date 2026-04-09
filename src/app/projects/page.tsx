@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface ProjectRow {
@@ -19,30 +19,85 @@ const STATUS_LABEL: Record<string, string> = {
   locked: "Gesperrt",
 };
 
+const LAST_CLICKED_KEY = "projects_last_clicked";
+
 export default function ProjectsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [search, setSearch] = useState({
-    project_name: "",
-    title: "",
-    city: "",
+    project_name: searchParams.get("project_name") ?? "",
+    title: searchParams.get("title") ?? "",
+    city: searchParams.get("city") ?? "",
   });
   const [results, setResults] = useState<ProjectRow[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+
+  // Beim Laden: falls URL-Parameter vorhanden, Suche automatisch ausführen
+  useEffect(() => {
+    const hasParams =
+      searchParams.get("project_name") ||
+      searchParams.get("title") ||
+      searchParams.get("city") ||
+      searchParams.get("searched");
+
+    if (hasParams) {
+      runSearch(
+        searchParams.get("project_name") ?? "",
+        searchParams.get("title") ?? "",
+        searchParams.get("city") ?? "",
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Nach dem Rendern der Liste: zur zuletzt angeklickten Zeile scrollen
+  useEffect(() => {
+    if (!searched) return;
+    const lastClicked = sessionStorage.getItem(LAST_CLICKED_KEY);
+    if (lastClicked && rowRefs.current[lastClicked]) {
+      setHighlighted(lastClicked);
+      rowRefs.current[lastClicked]?.scrollIntoView({ block: "center", behavior: "instant" });
+      sessionStorage.removeItem(LAST_CLICKED_KEY);
+    }
+  }, [searched, results]);
+
+  async function runSearch(pn: string, ti: string, ci: string) {
     setLoading(true);
     const params = new URLSearchParams();
-    if (search.project_name) params.set("project_name", search.project_name);
-    if (search.title) params.set("title", search.title);
-    if (search.city) params.set("city", search.city);
+    if (pn) params.set("project_name", pn);
+    if (ti) params.set("title", ti);
+    if (ci) params.set("city", ci);
+    params.set("searched", "1");
 
     const res = await fetch(`/api/projects?${params}`);
     const data = await res.json();
     setResults(Array.isArray(data) ? data : []);
     setSearched(true);
     setLoading(false);
+  }
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    // Suchparameter in URL schreiben (replace = kein extra History-Eintrag)
+    const params = new URLSearchParams();
+    if (search.project_name) params.set("project_name", search.project_name);
+    if (search.title) params.set("title", search.title);
+    if (search.city) params.set("city", search.city);
+    params.set("searched", "1");
+    router.replace(`/projects?${params}`);
+
+    await runSearch(search.project_name, search.title, search.city);
+  }
+
+  function handleRowClick(projectName: string) {
+    setHighlighted(projectName);
+    sessionStorage.setItem(LAST_CLICKED_KEY, projectName);
+    router.push(`/projects/${encodeURIComponent(projectName)}`);
   }
 
   return (
@@ -128,11 +183,16 @@ export default function ProjectsPage() {
                   {results.map((row) => (
                     <tr
                       key={row.project_name}
-                      onClick={() => router.push(`/projects/${encodeURIComponent(row.project_name)}`)}
-                      className="cursor-pointer border-b border-gray-100 hover:bg-blue-50 last:border-0"
+                      ref={(el) => { rowRefs.current[row.project_name] = el; }}
+                      onClick={() => handleRowClick(row.project_name)}
+                      className={`cursor-pointer border-b border-gray-100 last:border-0 ${
+                        highlighted === row.project_name
+                          ? "bg-blue-100"
+                          : "hover:bg-blue-50"
+                      }`}
                     >
-                      <td className="px-4 py-3 font-medium text-blue-700">{row.project_name}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.title}</td>
+                      <td className={`px-4 py-3 text-blue-700 ${highlighted === row.project_name ? "font-bold" : "font-medium"}`}>{row.project_name}</td>
+                      <td className={`px-4 py-3 ${highlighted === row.project_name ? "font-semibold text-gray-900" : "text-gray-700"}`}>{row.title}</td>
                       <td className="px-4 py-3 text-gray-500">{row.city ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${

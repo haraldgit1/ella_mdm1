@@ -7,17 +7,26 @@ export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
 
-  const projectName = new URL(request.url).searchParams.get("projectName");
-  if (!projectName) return Response.json({ error: "projectName fehlt" }, { status: 400 });
+  const { searchParams } = new URL(request.url);
+  const projectName    = searchParams.get("project_name") ?? "";
+  const alarmLevelCode = searchParams.get("alarm_level_code") ?? "";
+  const alarmText      = searchParams.get("alarm_text") ?? "";
+
+  const conditions: string[] = ["modify_status != 'deleted'"];
+  const params: unknown[] = [];
+
+  if (projectName)    { conditions.push("project_name LIKE ?");    params.push(`%${projectName}%`); }
+  if (alarmLevelCode) { conditions.push("alarm_level_code LIKE ?"); params.push(`%${alarmLevelCode}%`); }
+  if (alarmText)      { conditions.push("alarm_text LIKE ?");       params.push(`%${alarmText}%`); }
 
   const rows = getDb()
     .prepare(
-      `SELECT alarm_level_code, alarm_text, severity_rank
+      `SELECT project_name, alarm_level_code, alarm_text, severity_rank, modify_status
        FROM mdm_project_alarm
-       WHERE project_name = ? AND modify_status != 'deleted'
-       ORDER BY severity_rank, alarm_level_code`
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY project_name, severity_rank, alarm_level_code`
     )
-    .all(projectName);
+    .all(...params);
 
   return Response.json(rows);
 }
