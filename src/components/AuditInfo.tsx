@@ -21,19 +21,6 @@ const EDIT_STATUS_LABEL: Record<string, string> = {
   deleted:  "Gelöscht",
 };
 
-function Cell({ label, value }: { label: string; value?: string | number }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
-        {label}
-      </span>
-      <span className="rounded bg-white/70 border border-gray-200 px-1.5 py-0.5 text-[10px] font-mono text-gray-600 leading-none">
-        {value ?? "—"}
-      </span>
-    </div>
-  );
-}
-
 export default function AuditInfo({
   create_user, create_timestamp,
   modify_user, modify_timestamp,
@@ -45,24 +32,23 @@ export default function AuditInfo({
   const editStatusLabel = EDIT_STATUS_LABEL[modify_status ?? ""] ?? modify_status ?? "—";
 
   return (
-    <div className="mt-4 rounded-lg border border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-2.5">
-      <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
-        <Cell label="Erstellt von"   value={create_user} />
-        <Cell label="Erstellt am"    value={create_timestamp} />
-        <div className="hidden h-8 w-px bg-gray-200 sm:block" />
-        <Cell label="Geändert von"   value={modify_user} />
-        <Cell label="Geändert am"    value={modify_timestamp} />
-        <div className="hidden h-8 w-px bg-gray-200 sm:block" />
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-semibold uppercase tracking-widest text-gray-400 leading-none">
-            Bearb.-Status
-          </span>
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${editStatusStyle}`}>
-            {editStatusLabel}
-          </span>
-        </div>
-        <Cell label="Version" value={version} />
-      </div>
+    <div className="mt-4 flex items-center gap-3 rounded-lg border border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-1.5 text-[10px] font-mono text-gray-500">
+      <span>
+        <span className="mr-1 text-[9px] font-semibold uppercase tracking-widest text-gray-400">Erstellt:</span>
+        {create_user} · {create_timestamp}
+      </span>
+      <span className="text-gray-300">|</span>
+      <span>
+        <span className="mr-1 text-[9px] font-semibold uppercase tracking-widest text-gray-400">Geändert:</span>
+        {modify_user} · {modify_timestamp}
+      </span>
+      <span className="text-gray-300">|</span>
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${editStatusStyle}`}>
+        {editStatusLabel}
+      </span>
+      <span className="text-gray-400">
+        Version: <span className="font-semibold text-gray-600">{version}</span>
+      </span>
     </div>
   );
 }
