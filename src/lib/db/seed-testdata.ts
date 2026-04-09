@@ -20,8 +20,13 @@ try {
     body: { name: "Herbert1", email: USER, password: "Herbert1!" },
   });
   console.log(`   ✓ Benutzer ${USER} angelegt`);
-} catch {
-  console.log(`   — Benutzer ${USER} existiert bereits (oder Fehler beim Anlegen)`);
+} catch (e) {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (msg.toLowerCase().includes("unique") || msg.toLowerCase().includes("already")) {
+    console.log(`   — Benutzer ${USER} existiert bereits`);
+  } else {
+    console.log(`   — Fehler: ${msg}`);
+  }
 }
 
 // ─── 2. Lookup-Daten (INSERT OR IGNORE) ─────────────────────────────────────
