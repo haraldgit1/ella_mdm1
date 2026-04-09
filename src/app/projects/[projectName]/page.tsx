@@ -239,19 +239,13 @@ export default function ProjectDetailPage({
                   disabled={isLocked} className={inp(isLocked) + " resize-none"} />
               </Field>
               <Field label="ProjektTyp">
-                {(isNew || isCopy) ? (
-                  <select value={form.project_type_code ?? ""} onChange={(e) => set("project_type_code", e.target.value)}
-                    disabled={isLocked} className={inp(isLocked)}>
-                    <option value="">— bitte wählen —</option>
-                    {projectTypeList.map((t) => (
-                      <option key={t.code} value={t.code}>{t.description}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input type="text"
-                    value={projectTypeList.find((t) => t.code === form.project_type_code)?.description ?? form.project_type_code ?? ""}
-                    disabled className={inp(true)} />
-                )}
+                <select value={form.project_type_code ?? ""} onChange={(e) => set("project_type_code", e.target.value)}
+                  disabled={isLocked} className={inp(isLocked)}>
+                  <option value="">— bitte wählen —</option>
+                  {projectTypeList.map((t) => (
+                    <option key={t.code} value={t.code}>{t.description}</option>
+                  ))}
+                </select>
               </Field>
             </div>
           )}

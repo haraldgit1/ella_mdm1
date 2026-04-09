@@ -178,19 +178,13 @@ export default function DeviceDetailPage({
                   disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Typ *">
-                {(isNew || isCopy) ? (
-                  <select value={form.device_type_code ?? ""} onChange={(e) => set("device_type_code", e.target.value)}
-                    disabled={isLocked} className={inp(isLocked)}>
-                    <option value="">— bitte wählen —</option>
-                    {deviceTypeList.map((t) => (
-                      <option key={t.code} value={t.code}>{t.description}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input type="text"
-                    value={deviceTypeList.find((t) => t.code === form.device_type_code)?.description ?? form.device_type_code ?? ""}
-                    disabled className={inp(true)} />
-                )}
+                <select value={form.device_type_code ?? ""} onChange={(e) => set("device_type_code", e.target.value)}
+                  disabled={isLocked} className={inp(isLocked)}>
+                  <option value="">— bitte wählen —</option>
+                  {deviceTypeList.map((t) => (
+                    <option key={t.code} value={t.code}>{t.description}</option>
+                  ))}
+                </select>
               </Field>
               <Field label="Status">
                 <select value={form.status ?? "active"} onChange={(e) => set("status", e.target.value)}
