@@ -74,7 +74,18 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
       modify_user=@modify_user, modify_timestamp=@modify_timestamp,
       modify_status=@modify_status, version=version+1
      WHERE project_name=@project_name AND device_name=@device_name`
-  ).run({ ...body, ...audit, project_name: projectName, device_name: deviceName });
+  ).run({
+    ...body,
+    short_description_json: body.short_description_json?.trim() || null,
+    detail_json: body.detail_json?.trim() || null,
+    alarm_level_code: body.alarm_level_code?.trim() || null,
+    alarm_timestamp: body.alarm_timestamp?.trim() || null,
+    limit_min_value: body.limit_min_value ?? null,
+    limit_max_value: body.limit_max_value ?? null,
+    ...audit,
+    project_name: projectName,
+    device_name: deviceName,
+  });
 
   return Response.json({ project_name: projectName, device_name: deviceName });
 }

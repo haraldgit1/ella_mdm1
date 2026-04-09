@@ -69,7 +69,18 @@ export async function POST(request: NextRequest) {
         @alarm_enabled, @alarm_timestamp, @alarm_level_code, @detail_json,
         @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status, @version
       )`
-    ).run({ ...body, alarm_enabled: body.alarm_enabled ?? 0, status: body.status ?? "active", ...audit });
+    ).run({
+      ...body,
+      alarm_enabled: body.alarm_enabled ?? 0,
+      status: body.status ?? "active",
+      short_description_json: body.short_description_json?.trim() || null,
+      detail_json: body.detail_json?.trim() || null,
+      alarm_level_code: body.alarm_level_code?.trim() || null,
+      alarm_timestamp: body.alarm_timestamp?.trim() || null,
+      limit_min_value: body.limit_min_value ?? null,
+      limit_max_value: body.limit_max_value ?? null,
+      ...audit,
+    });
 
     return Response.json({ project_name: body.project_name, device_name: body.device_name }, { status: 201 });
   } catch (e: unknown) {
