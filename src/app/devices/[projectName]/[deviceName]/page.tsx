@@ -38,10 +38,22 @@ export default function DeviceDetailPage({
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const [projectList, setProjectList] = useState<{ project_name: string; title: string }[]>([]);
+  const [deviceTypeList, setDeviceTypeList] = useState<{ code: string; description: string }[]>([]);
+
   const isLocked = form.modify_status === "locked";
 
   useEffect(() => {
-    if (isNew && !isCopy) return;
+    if (isNew || isCopy) {
+      Promise.all([
+        fetch("/api/projects").then((r) => r.json()),
+        fetch("/api/lookups?function=100").then((r) => r.json()),
+      ]).then(([projects, types]) => {
+        setProjectList(Array.isArray(projects) ? projects : []);
+        setDeviceTypeList(Array.isArray(types) ? types : []);
+      });
+    }
+    if (isNew && !isCopy) { setLoading(false); return; }
     fetch(`/api/devices/${encodeURIComponent(projectName)}/${encodeURIComponent(deviceName)}`)
       .then((r) => r.json())
       .then((data) => {
@@ -146,8 +158,17 @@ export default function DeviceDetailPage({
           {tab === "allgemein" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="ProjektName *">
-                <input type="text" value={form.project_name ?? ""} onChange={(e) => set("project_name", e.target.value)}
-                  disabled={!(isNew || isCopy) || isLocked} className={inp(!(isNew || isCopy) || isLocked)} />
+                {(isNew || isCopy) ? (
+                  <select value={form.project_name ?? ""} onChange={(e) => set("project_name", e.target.value)}
+                    disabled={isLocked} className={inp(isLocked)}>
+                    <option value="">— bitte wählen —</option>
+                    {projectList.map((p) => (
+                      <option key={p.project_name} value={p.project_name}>{p.project_name} — {p.title}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input type="text" value={form.project_name ?? ""} disabled className={inp(true)} />
+                )}
               </Field>
               <Field label="DeviceName *">
                 <input type="text" value={form.device_name ?? ""} onChange={(e) => set("device_name", e.target.value)}
@@ -158,8 +179,17 @@ export default function DeviceDetailPage({
                   disabled={isLocked} className={inp(isLocked)} />
               </Field>
               <Field label="Typ *">
-                <input type="text" value={form.device_type_code ?? ""} onChange={(e) => set("device_type_code", e.target.value)}
-                  disabled={isLocked} className={inp(isLocked)} />
+                {(isNew || isCopy) ? (
+                  <select value={form.device_type_code ?? ""} onChange={(e) => set("device_type_code", e.target.value)}
+                    disabled={isLocked} className={inp(isLocked)}>
+                    <option value="">— bitte wählen —</option>
+                    {deviceTypeList.map((t) => (
+                      <option key={t.code} value={t.code}>{t.description}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input type="text" value={form.device_type_code ?? ""} disabled className={inp(true)} />
+                )}
               </Field>
               <Field label="Status">
                 <select value={form.status ?? "active"} onChange={(e) => set("status", e.target.value)}
