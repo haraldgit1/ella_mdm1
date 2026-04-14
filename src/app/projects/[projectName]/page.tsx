@@ -54,6 +54,10 @@ export default function ProjectDetailPage({
   const [newEmail, setNewEmail] = useState({ email_address: "", email_purpose: "" });
   const [emailError, setEmailError] = useState("");
 
+  // Test-E-Mail state
+  const [mailLoading, setMailLoading] = useState(false);
+  const [mailStatus, setMailStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+
   const isLocked = form.modify_status === "locked";
 
   const loadAlarms = useCallback(async (name: string) => {
@@ -190,6 +194,21 @@ export default function ProjectDetailPage({
     loadEmails(projectName);
   }
 
+  async function handleSendTestMail() {
+    setMailLoading(true);
+    setMailStatus(null);
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectName)}/send-test-email`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    setMailLoading(false);
+    if (!res.ok) {
+      setMailStatus({ ok: false, msg: data.error ?? "Fehler" });
+    } else {
+      setMailStatus({ ok: true, msg: `Gesendet an ${data.sent_to.join(", ")} (${data.alarms} Alarmstufen)` });
+    }
+  }
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center"><p className="text-gray-500">Laden…</p></div>;
   }
@@ -207,6 +226,19 @@ export default function ProjectDetailPage({
             <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">Gesperrt</span>
           )}
         </div>
+        {!isNew && !isCopy && (
+          <div className="flex items-center gap-3">
+            {mailStatus && (
+              <span className={`text-xs font-medium ${mailStatus.ok ? "text-green-600" : "text-red-600"}`}>
+                {mailStatus.ok ? "✓ " : "✗ "}{mailStatus.msg}
+              </span>
+            )}
+            <button onClick={handleSendTestMail} disabled={mailLoading}
+              className="rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+              {mailLoading ? "Sendet…" : "✉ Test-E-Mail senden"}
+            </button>
+          </div>
+        )}
       </header>
 
       <main className="flex flex-1 flex-col gap-0 p-6">
