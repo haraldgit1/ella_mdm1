@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const alarmText      = searchParams.get("alarm_text") ?? "";
 
   const conditions: string[] = ["modify_status != 'deleted'"];
-  const params: (string | number | null)[] = [];
+  const params: unknown[] = [];
 
   if (projectName)    { conditions.push("project_name LIKE ?");    params.push(`%${projectName}%`); }
   if (alarmLevelCode) { conditions.push("alarm_level_code LIKE ?"); params.push(`%${alarmLevelCode}%`); }

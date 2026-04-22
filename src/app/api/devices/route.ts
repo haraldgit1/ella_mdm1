@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const alarmEnabled = searchParams.get("alarm_enabled") ?? "";
 
   const conditions: string[] = ["d.modify_status != 'deleted'"];
-  const params: (string | number | null)[] = [];
+  const params: unknown[] = [];
 
   if (projectName)  { conditions.push("d.project_name LIKE ?");    params.push(`%${projectName}%`); }
   if (deviceName)   { conditions.push("d.device_name LIKE ?");     params.push(`%${deviceName}%`); }

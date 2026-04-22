@@ -47,12 +47,20 @@ Für `BETTER_AUTH_SECRET` einen zufälligen String generieren, z. B.:
 [System.Web.Security.Membership]::GeneratePassword(48, 8)
 ```
 
-### Schritt 3: Abhängigkeiten installieren
+### Schritt 3: Abhängigkeiten installieren (offline-fähig)
+
+**Doppelklick auf `install-windows.bat`** oder in PowerShell:
 ```powershell
 cd C:\Apps\ella_edge_hub
-bun install
+.\install-windows.bat
 ```
-> Dieser Schritt kompiliert `better-sqlite3` nativ für Windows — dauert 1–2 Minuten.
+
+> Das Script entpackt die mitgelieferten Node.js-Headers und kompiliert
+> `better-sqlite3` lokal — **kein Internet nötig**.
+> Dauer: ca. 2–3 Minuten.
+
+> **Voraussetzung:** Visual Studio Build Tools müssen einmalig installiert sein
+> (falls noch nicht vorhanden): `winget install Microsoft.VisualStudio.2022.BuildTools`
 
 ### Schritt 4: Produktions-Build erstellen
 ```powershell

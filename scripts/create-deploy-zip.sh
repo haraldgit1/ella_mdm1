@@ -18,9 +18,14 @@ cd "$PROJECT_DIR"
 # git archive exportiert exakt die versionierten Dateien — kein node_modules, kein .next, keine DB
 git archive --format=zip --output="$OUTPUT" HEAD
 
-# DEPLOY.md ist ggf. noch nicht committed — separat hinzufügen falls vorhanden
-if [ -f "DEPLOY.md" ] && ! git ls-files --error-unmatch DEPLOY.md 2>/dev/null; then
-  zip "$OUTPUT" DEPLOY.md
+# Nicht-versionierte Dateien ergänzen die im ZIP benötigt werden
+for f in DEPLOY.md install-windows.bat; do
+  [ -f "$f" ] && ! git ls-files --error-unmatch "$f" 2>/dev/null && zip "$OUTPUT" "$f"
+done
+
+# Node.js Headers für Offline-Kompilierung mitliefern (nur wenn vorhanden)
+if [ -d "deploy-assets" ]; then
+  zip -r "$OUTPUT" deploy-assets/
 fi
 
 SIZE=$(du -sh "$OUTPUT" | cut -f1)

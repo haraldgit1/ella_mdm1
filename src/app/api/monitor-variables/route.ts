@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const monitorName = searchParams.get("monitor_name") ?? "";
 
   const conditions: string[] = ["modify_status != 'deleted'"];
-  const params: (string | number | null)[] = [];
+  const params: unknown[] = [];
 
   if (projectName) { conditions.push("project_name = ?"); params.push(projectName); }
   if (monitorName) { conditions.push("monitor_name = ?"); params.push(monitorName); }

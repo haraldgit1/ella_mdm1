@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const dataType    = searchParams.get("data_type")    ?? "";
 
   const conditions: string[] = ["modify_status != 'deleted'"];
-  const params: (string | number | null)[] = [];
+  const params: unknown[] = [];
 
   if (projectName) { conditions.push("project_name LIKE ?"); params.push(`%${projectName}%`); }
   if (deviceName)  { conditions.push("device_name LIKE ?");  params.push(`%${deviceName}%`); }
