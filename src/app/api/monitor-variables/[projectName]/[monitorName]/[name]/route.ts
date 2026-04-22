@@ -28,7 +28,7 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
        modify_status=@modify_status, version=version+1
      WHERE project_name=@project_name AND monitor_name=@monitor_name AND name=@name`
   ).run({
-    title: body.title,
+    title: body.title ?? null,
     datablock: body.datablock?.trim() || null,
     data_type: body.data_type,
     offset: body.offset?.trim() || null,

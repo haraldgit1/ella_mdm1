@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   // Volltext-Suche für Stammdaten-Programm
   const conditions: string[] = ["modify_status != 'deleted'"];
-  const params: unknown[] = [];
+  const params: (string | number | null)[] = [];
   if (functionCode)  { conditions.push("function_code = ?");        params.push(Number(functionCode)); }
   if (functionText)  { conditions.push("function_text LIKE ?");     params.push(`%${functionText}%`); }
   if (code)          { conditions.push("code LIKE ?");               params.push(`%${code}%`); }

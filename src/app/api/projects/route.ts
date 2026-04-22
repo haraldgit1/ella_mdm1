@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const modifyStatus   = searchParams.get("modify_status") ?? "";
 
   const conditions: string[] = ["modify_status != 'deleted'"];
-  const params: unknown[] = [];
+  const params: (string | number | null)[] = [];
 
   if (projectName)    { conditions.push("project_name LIKE ?");    params.push(`%${projectName}%`); }
   if (title)          { conditions.push("title LIKE ?");           params.push(`%${title}%`); }
