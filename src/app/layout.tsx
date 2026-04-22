@@ -12,6 +12,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Ella Edge Integration Hub",
   description: "Local Edge Application for Plant Management, Monitoring and Cloud Integration",
