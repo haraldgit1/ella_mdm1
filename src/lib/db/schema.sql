@@ -172,6 +172,57 @@ CREATE INDEX IF NOT EXISTS idx_alarm_project       ON mdm_project_alarm(project_
 CREATE INDEX IF NOT EXISTS idx_email_project       ON mdm_project_email(project_name);
 CREATE INDEX IF NOT EXISTS idx_variable_device     ON mdm_device_variable(project_name, device_name);
 
+CREATE TABLE IF NOT EXISTS mdm_monitor (
+    project_name          TEXT    NOT NULL,
+    monitor_name          TEXT    NOT NULL,
+    title                 TEXT    NOT NULL,
+    status                TEXT    NOT NULL DEFAULT 'active'
+                                 CHECK (status IN ('active','inactive')),
+    type                  TEXT,
+    datablock             TEXT,
+    short_description     TEXT,
+    detail_json           TEXT    CHECK (detail_json IS NULL OR json_valid(detail_json)),
+    create_user           TEXT    NOT NULL,
+    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user           TEXT    NOT NULL,
+    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
+                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version               INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (project_name, monitor_name),
+    FOREIGN KEY (project_name)
+        REFERENCES mdm_project(project_name)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS mdm_monitor_variable (
+    project_name          TEXT    NOT NULL,
+    monitor_name          TEXT    NOT NULL,
+    name                  TEXT    NOT NULL,
+    title                 TEXT,
+    datablock             TEXT,
+    data_type             TEXT    NOT NULL,
+    offset                TEXT,
+    create_user           TEXT    NOT NULL,
+    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user           TEXT    NOT NULL,
+    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
+                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version               INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (project_name, monitor_name, name),
+    FOREIGN KEY (project_name, monitor_name)
+        REFERENCES mdm_monitor(project_name, monitor_name)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_monitor_project      ON mdm_monitor(project_name);
+CREATE INDEX IF NOT EXISTS idx_monitor_status       ON mdm_monitor(status);
+CREATE INDEX IF NOT EXISTS idx_monitor_modify_status ON mdm_monitor(modify_status);
+CREATE INDEX IF NOT EXISTS idx_monitor_variable     ON mdm_monitor_variable(project_name, monitor_name);
+
 -- better-auth Tabellen (user, session, account, verification)
 CREATE TABLE IF NOT EXISTS "user" (
     "id"            TEXT    NOT NULL PRIMARY KEY,

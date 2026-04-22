@@ -3,24 +3,26 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 
-type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables";
+type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables" | "monitor_variables";
 
 const TYPE_OPTIONS: { value: ImportType; label: string }[] = [
-  { value: "projects",  label: "Projekte" },
-  { value: "devices",   label: "Devices" },
-  { value: "alarms",    label: "Alarmstufen" },
-  { value: "emails",    label: "Ziel-E-Mails" },
-  { value: "lookups",   label: "Lookup-Werte" },
-  { value: "variables", label: "Variablen" },
+  { value: "projects",          label: "Projekte" },
+  { value: "devices",           label: "Devices" },
+  { value: "alarms",            label: "Alarmstufen" },
+  { value: "emails",            label: "Ziel-E-Mails" },
+  { value: "lookups",           label: "Lookup-Werte" },
+  { value: "variables",         label: "Device-Variablen" },
+  { value: "monitor_variables", label: "Monitor-Variablen" },
 ];
 
 const TEMPLATES: Record<ImportType, string> = {
-  projects:  "project_name,title,short_description,project_type_code,street,house_no,postal_code,city,country,primary_ip_address,secondary_ip_address,alarm_interval_sec,alarm_count_limit\nProjekt1,Bezeichnung 1,,,,,,,,,,,",
-  devices:   "project_name,device_name,title,device_type_code,status,limit_min_value,limit_max_value,alarm_enabled,alarm_level_code\nProjekt1,Device1,Bezeichnung,1,active,,,0,",
-  alarms:    "project_name,alarm_level_code,alarm_text,severity_rank\nProjekt1,ALM1,Alarm-Text,1",
-  emails:    "project_name,email_address,email_purpose,is_active\nProjekt1,mail@example.com,Alarm,1",
-  lookups:   "function_code,code,description,function_text\n100,6,Pumpe2,DeviceType",
-  variables: "project_name,device_name,name,title,datablock,data_type,offset,range,unit\nProjekt1,Device1,Leistung,Aktuelle Leistung,DB10,3,DB10.DBD0,0..2500,kW",
+  projects:          "project_name,title,short_description,project_type_code,street,house_no,postal_code,city,country,primary_ip_address,secondary_ip_address,alarm_interval_sec,alarm_count_limit\nProjekt1,Bezeichnung 1,,,,,,,,,,,",
+  devices:           "project_name,device_name,title,device_type_code,status,limit_min_value,limit_max_value,alarm_enabled,alarm_level_code\nProjekt1,Device1,Bezeichnung,1,active,,,0,",
+  alarms:            "project_name,alarm_level_code,alarm_text,severity_rank\nProjekt1,ALM1,Alarm-Text,1",
+  emails:            "project_name,email_address,email_purpose,is_active\nProjekt1,mail@example.com,Alarm,1",
+  lookups:           "function_code,code,description,function_text\n100,6,Pumpe2,DeviceType",
+  variables:         "project_name,device_name,name,title,datablock,data_type,offset,range,unit\nProjekt1,Device1,Leistung,Aktuelle Leistung,DB10,3,DB10.DBD0,0..2500,kW",
+  monitor_variables: "project_name;monitor_name;name;title;datablock;data_type;offset\nProjekt1;Monitor1;Leistung;Aktuelle Leistung;DB10;3;DB10.DBD0",
 };
 
 interface ImportResult {
@@ -29,8 +31,15 @@ interface ImportResult {
   errors: { row: number; message: string }[];
 }
 
+const CHARSET_OPTIONS = [
+  { value: "utf-8",        label: "UTF-8 (Standard)" },
+  { value: "windows-1252", label: "Windows-1252 (Western European, z.B. Siemens SPS)" },
+  { value: "iso-8859-1",   label: "ISO-8859-1 (Latin-1)" },
+];
+
 export default function ImportPage() {
   const [type, setType] = useState<ImportType>("projects");
+  const [charset, setCharset] = useState("utf-8");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -56,6 +65,7 @@ export default function ImportPage() {
 
     const formData = new FormData();
     formData.append("type", type);
+    formData.append("charset", charset);
     formData.append("file", file);
 
     const res = await fetch("/api/import", { method: "POST", body: formData });
@@ -85,6 +95,17 @@ export default function ImportPage() {
               <select value={type} onChange={(e) => setType(e.target.value as ImportType)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                 {TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Zeichensatz */}
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">Zeichensatz (Encoding)</label>
+              <select value={charset} onChange={(e) => setCharset(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                {CHARSET_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>

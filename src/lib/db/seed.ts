@@ -19,6 +19,10 @@ const lookups = [
   { function_code: 200, code: "2", description: "Anlage",      function_text: "ProjectType" },
   { function_code: 200, code: "3", description: "Gebäude",     function_text: "ProjectType" },
   { function_code: 200, code: "4", description: "Infrastruktur", function_text: "ProjectType" },
+
+  // MonitorType (function_code = 400)
+  { function_code: 400, code: "1", description: "Meldung",     function_text: "MonitorType" },
+  { function_code: 400, code: "2", description: "Störung",     function_text: "MonitorType" },
 ];
 
 const insert = db.prepare(`

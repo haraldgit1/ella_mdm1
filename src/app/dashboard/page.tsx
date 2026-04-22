@@ -4,15 +4,66 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth/auth-client";
 
-const NAV_ITEMS = [
-  { label: "Projekte",   href: "/projects",   icon: "🗂" },
-  { label: "Alarme",     href: "/alarms",     icon: "🔔" },
-  { label: "Devices",    href: "/devices",    icon: "📡" },
-  { label: "Variablen",  href: "/variables",  icon: "📋" },
-  { label: "Lookups",    href: "/lookups",    icon: "🔖" },
-  { label: "Reports",    href: "/reports",    icon: "📊" },
-  { label: "Import",     href: "/import",     icon: "📥" },
-  { label: "Export",     href: "/export",     icon: "📤" },
+type NavItem = {
+  label: string;
+  icon: string;
+  href?: string;       // aktiv wenn gesetzt
+  planned?: boolean;   // Platzhalter
+};
+
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: "Stammdaten",
+    items: [
+      { label: "Projekte",  icon: "🗂",  href: "/projects"  },
+      { label: "Devices",   icon: "📡",  href: "/devices"   },
+      { label: "Variablen", icon: "📋",  href: "/variables" },
+      { label: "Lookups",   icon: "🔖",  href: "/lookups"   },
+    ],
+  },
+  {
+    title: "Monitoring",
+    items: [
+      { label: "Monitors",      icon: "📟", href: "/monitors" },
+      { label: "Event Rules",   icon: "⚙️",  planned: true    },
+      { label: "Events",        icon: "⚡",  planned: true    },
+      { label: "Actions",       icon: "🎯",  planned: true    },
+    ],
+  },
+  {
+    title: "Integration & Sync",
+    items: [
+      { label: "Sync-Konfiguration",  icon: "🔗", planned: true },
+      { label: "Datenmapping",        icon: "🗺",  planned: true },
+      { label: "Export Queue",        icon: "📤", planned: true },
+      { label: "Import Queue",        icon: "📥", planned: true },
+      { label: "Sync-Historie",       icon: "🕓", planned: true },
+      { label: "Verbindungsstatus",   icon: "🌐", planned: true },
+    ],
+  },
+  {
+    title: "Reports",
+    items: [
+      { label: "Berichte",         icon: "📊", href: "/reports" },
+      { label: "Monatsberichte",   icon: "📅", planned: true    },
+      { label: "Event-Auswertung", icon: "📈", planned: true    },
+    ],
+  },
+  {
+    title: "Administration",
+    items: [
+      { label: "Import CSV",         icon: "⬆️",  href: "/import" },
+      { label: "Export CSV",         icon: "⬇️",  href: "/export" },
+      { label: "Benutzer & Rollen",  icon: "👤", planned: true   },
+      { label: "Kommunikation",      icon: "📡", planned: true   },
+      { label: "Logging & Diagnose", icon: "🔍", planned: true   },
+    ],
+  },
 ];
 
 export default function DashboardPage() {
@@ -40,7 +91,10 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-lg font-semibold text-gray-900">Ella MDM</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900">Ella Edge Integration Hub</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Local Edge Application</p>
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">{session.user.email}</span>
           <button
@@ -52,23 +106,42 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center gap-10 p-8">
-        <p className="text-xl font-medium text-gray-700">
+      <main className="flex flex-1 flex-col gap-8 p-8 max-w-5xl mx-auto w-full">
+        <p className="text-lg font-medium text-gray-700">
           Willkommen, {session.user.name}
         </p>
 
-        <nav className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white px-8 py-6 shadow-sm transition hover:border-blue-400 hover:shadow-md"
-            >
-              <span className="text-3xl">{item.icon}</span>
-              <span className="text-sm font-medium text-gray-800">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+        {NAV_SECTIONS.map((section) => (
+          <section key={section.title}>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+              {section.title}
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {section.items.map((item) =>
+                item.planned ? (
+                  <div
+                    key={item.label}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white px-4 py-5 opacity-50 cursor-not-allowed"
+                    title="In Planung"
+                  >
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="text-xs font-medium text-gray-500 text-center leading-tight">{item.label}</span>
+                    <span className="text-[10px] text-gray-400 border border-gray-200 rounded px-1">geplant</span>
+                  </div>
+                ) : (
+                  <Link
+                    key={item.label}
+                    href={item.href!}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-5 shadow-sm transition hover:border-blue-400 hover:shadow-md"
+                  >
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="text-xs font-medium text-gray-800 text-center leading-tight">{item.label}</span>
+                  </Link>
+                )
+              )}
+            </div>
+          </section>
+        ))}
       </main>
     </div>
   );

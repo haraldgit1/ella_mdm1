@@ -2,7 +2,7 @@ import { getDb } from "@/lib/db/db";
 import { auditInsert, auditUpdate } from "@/lib/audit/audit";
 import { parseCsv } from "./csv-parser";
 
-export type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables";
+export type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables" | "monitor_variables";
 
 export interface ImportResult {
   imported: number;
@@ -196,6 +196,34 @@ function importRow(type: ImportType, row: Record<string, string>, user: string):
          offset,range,unit,create_user,create_timestamp,modify_user,modify_timestamp,modify_status,version)
          VALUES (@project_name,@device_name,@name,@title,@datablock,@data_type,
          @offset,@range,@unit,@create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status,@version)`
+      ).run({ ...nullify(row), ...a });
+      return "inserted";
+    }
+
+    case "monitor_variables": {
+      if (!row.project_name) throw new Error("project_name fehlt");
+      if (!row.monitor_name) throw new Error("monitor_name fehlt");
+      if (!row.name)         throw new Error("name fehlt");
+      if (!row.data_type)    throw new Error("data_type fehlt");
+      const existing = db.prepare(
+        "SELECT 1 FROM mdm_monitor_variable WHERE project_name=? AND monitor_name=? AND name=?"
+      ).get(row.project_name, row.monitor_name, row.name);
+      if (existing) {
+        const a = auditUpdate(user);
+        db.prepare(
+          `UPDATE mdm_monitor_variable SET title=@title, datablock=@datablock, data_type=@data_type,
+           offset=@offset,
+           modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
+           WHERE project_name=@project_name AND monitor_name=@monitor_name AND name=@name`
+        ).run({ ...nullify(row), ...a });
+        return "updated";
+      }
+      const a = auditInsert(user);
+      db.prepare(
+        `INSERT INTO mdm_monitor_variable (project_name,monitor_name,name,title,datablock,data_type,
+         offset,create_user,create_timestamp,modify_user,modify_timestamp,modify_status,version)
+         VALUES (@project_name,@monitor_name,@name,@title,@datablock,@data_type,
+         @offset,@create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status,1)`
       ).run({ ...nullify(row), ...a });
       return "inserted";
     }

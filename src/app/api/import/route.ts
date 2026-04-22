@@ -4,7 +4,8 @@ import { getDb } from "@/lib/db/db";
 import { importCsv, type ImportType } from "@/lib/import/import-handler";
 import { randomUUID } from "crypto";
 
-const VALID_TYPES: ImportType[] = ["projects", "devices", "alarms", "emails", "lookups", "variables"];
+const VALID_TYPES: ImportType[] = ["projects", "devices", "alarms", "emails", "lookups", "variables", "monitor_variables"];
+const VALID_CHARSETS = ["utf-8", "windows-1252", "iso-8859-1"];
 
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const type = formData.get("type") as ImportType;
   const file = formData.get("file") as File | null;
+  const charsetRaw = (formData.get("charset") as string | null) ?? "utf-8";
+  const charset = VALID_CHARSETS.includes(charsetRaw) ? charsetRaw : "utf-8";
 
   if (!VALID_TYPES.includes(type)) {
     return Response.json({ error: "Ungültiger Import-Typ" }, { status: 400 });
@@ -21,7 +24,8 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Keine Datei angegeben" }, { status: 400 });
   }
 
-  const csvText = await file.text();
+  const buffer = await file.arrayBuffer();
+  const csvText = new TextDecoder(charset).decode(buffer);
   const importId = randomUUID();
   const db = getDb();
   const now = new Date().toISOString().replace("T", " ").slice(0, 19);
