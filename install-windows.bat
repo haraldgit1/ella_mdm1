@@ -36,7 +36,6 @@ echo Installiere Abhaengigkeiten...
 "%BUN%" install --ignore-scripts
 
 if errorlevel 1 (
-    echo.
     echo FEHLER bei bun install!
     pause
     exit /b 1
@@ -68,9 +67,10 @@ echo ============================================
 echo  Installation erfolgreich!
 echo ============================================
 echo.
-echo Naechste Schritte:
-echo   1. "%BUN%" run build
-echo   2. "%BUN%" start        (oder Doppelklick start.bat)
-echo   3. Browser: http://localhost:3000
+echo Anwendung starten:
+echo   Doppelklick auf start.bat
+echo   oder: "%BUN%" start
+echo.
+echo Browser: http://localhost:3000
 echo.
 pause

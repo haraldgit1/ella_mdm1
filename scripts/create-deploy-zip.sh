@@ -15,18 +15,32 @@ echo "   Ziel:    $OUTPUT"
 
 cd "$PROJECT_DIR"
 
-# git archive exportiert exakt die versionierten Dateien — kein node_modules, kein .next, keine DB
+# Next.js Production-Build auf dem Mac ausführen
+echo ""
+echo "🔨 Starte Next.js Build..."
+bun run build
+echo "✓ Build fertig"
+
+# git archive exportiert exakt die versionierten Dateien — kein node_modules, keine DB
 git archive --format=zip --output="$OUTPUT" HEAD
 
-# Nicht-versionierte Dateien ergänzen die im ZIP benötigt werden
+# Nicht-versionierte Dateien ergänzen
 for f in DEPLOY.md install-windows.bat; do
   [ -f "$f" ] && ! git ls-files --error-unmatch "$f" 2>/dev/null && zip "$OUTPUT" "$f"
 done
 
-# Node.js Headers für Offline-Kompilierung mitliefern (nur wenn vorhanden)
+# deploy-assets (bun.exe, better-sqlite3 Binary)
 if [ -d "deploy-assets" ]; then
   zip -r "$OUTPUT" deploy-assets/
 fi
+
+# .next Build-Output hinzufügen (ohne Dev-Cache und Diagnostics)
+echo ""
+echo "📁 Füge .next Build-Output hinzu..."
+zip -r "$OUTPUT" .next/ \
+  -x ".next/dev/*" \
+  -x ".next/diagnostics/*" \
+  -x ".next/types/*"
 
 SIZE=$(du -sh "$OUTPUT" | cut -f1)
 echo ""
@@ -35,6 +49,5 @@ echo ""
 echo "Windows-Zielrechner:"
 echo "  1. ZIP entpacken nach C:\\Apps\\ella_edge_hub\\"
 echo "  2. .env.local anlegen (siehe DEPLOY.md)"
-echo "  3. bun install"
-echo "  4. bun run build"
-echo "  5. bun start  →  http://localhost:3000"
+echo "  3. install-windows.bat ausführen"
+echo "  4. bun.exe start  →  http://localhost:3000"
