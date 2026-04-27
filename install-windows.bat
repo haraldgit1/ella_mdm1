@@ -6,38 +6,29 @@ echo  Ella Edge Integration Hub - Installation
 echo ============================================
 echo.
 
-REM Node.js Headers extrahieren (fuer bessere-sqlite3 Kompilierung)
-if not exist "node-headers\node-v18.18.0\include\node" (
-    echo Entpacke Node.js Headers...
-    if not exist "node-headers" mkdir node-headers
-    tar -xzf deploy-assets\node-v18.18.0-headers.tar.gz -C node-headers
-    if errorlevel 1 (
-        echo FEHLER: Konnte Headers nicht entpacken.
-        pause
-        exit /b 1
-    )
-    echo Headers bereit.
-) else (
-    echo Node.js Headers bereits vorhanden.
-)
-
-echo.
-echo Installiere Abhaengigkeiten ^(node-gyp kompiliert better-sqlite3^)...
-echo Dies kann 2-3 Minuten dauern...
-echo.
-
-set npm_config_nodedir=%~dp0node-headers\node-v18.18.0
-bun install
+REM Abhaengigkeiten installieren (ohne Kompilierung nativer Module)
+echo Installiere Abhaengigkeiten...
+bun install --ignore-scripts
 
 if errorlevel 1 (
     echo.
     echo FEHLER bei der Installation!
-    echo.
-    echo Moegliche Ursache: Visual Studio Build Tools fehlen.
-    echo Bitte installieren mit:
-    echo   winget install Microsoft.VisualStudio.2022.BuildTools
-    echo.
-    echo Dann dieses Script erneut ausfuehren.
+    pause
+    exit /b 1
+)
+
+REM Pre-built better-sqlite3 Windows-Binary einrichten (kein Kompilieren noetig)
+echo.
+echo Richte better-sqlite3 Windows-Binary ein...
+
+if not exist "node_modules\better-sqlite3\build\Release" (
+    mkdir "node_modules\better-sqlite3\build\Release"
+)
+
+tar -xzf deploy-assets\better-sqlite3-win-x64.tar.gz -C node_modules\better-sqlite3
+
+if errorlevel 1 (
+    echo FEHLER: Konnte better-sqlite3 Binary nicht einrichten.
     pause
     exit /b 1
 )

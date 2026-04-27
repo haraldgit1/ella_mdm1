@@ -2,7 +2,7 @@
 
 ## Voraussetzungen (Windows-Zielrechner)
 
-### 1. Bun installieren
+### Bun installieren
 PowerShell als Administrator öffnen und ausführen:
 ```powershell
 irm bun.sh/install.ps1 | iex
@@ -12,12 +12,8 @@ Danach PowerShell neu starten und prüfen:
 bun --version
 ```
 
-### 2. Build-Tools für native Module (better-sqlite3)
-Bun benötigt zum Kompilieren von `better-sqlite3` die Visual C++ Build Tools:
-```powershell
-winget install Microsoft.VisualStudio.2022.BuildTools
-```
-Oder alternativ: "Desktop development with C++" in Visual Studio installieren.
+> **Visual Studio Build Tools werden NICHT benötigt** — das vorkompilierte
+> Windows-Binary für `better-sqlite3` ist bereits im ZIP enthalten.
 
 ---
 
@@ -47,20 +43,16 @@ Für `BETTER_AUTH_SECRET` einen zufälligen String generieren, z. B.:
 [System.Web.Security.Membership]::GeneratePassword(48, 8)
 ```
 
-### Schritt 3: Abhängigkeiten installieren (offline-fähig)
-
+### Schritt 3: Abhängigkeiten installieren
 **Doppelklick auf `install-windows.bat`** oder in PowerShell:
 ```powershell
 cd C:\Apps\ella_edge_hub
 .\install-windows.bat
 ```
 
-> Das Script entpackt die mitgelieferten Node.js-Headers und kompiliert
-> `better-sqlite3` lokal — **kein Internet nötig**.
-> Dauer: ca. 2–3 Minuten.
-
-> **Voraussetzung:** Visual Studio Build Tools müssen einmalig installiert sein
-> (falls noch nicht vorhanden): `winget install Microsoft.VisualStudio.2022.BuildTools`
+> Das Script installiert alle Pakete und richtet das vorkompilierte
+> `better-sqlite3`-Binary ein — **kein Internet, kein Compiler nötig**.
+> Dauer: ca. 30–60 Sekunden.
 
 ### Schritt 4: Produktions-Build erstellen
 ```powershell
@@ -111,6 +103,6 @@ Damit die Anwendung beim Windows-Start automatisch läuft:
 Bei einer neuen Version:
 1. Anwendung stoppen
 2. Neue ZIP-Datei entpacken (`.env.local` und `ella_mdm.db` **nicht** überschreiben)
-3. `bun install` (bei geänderten Dependencies)
+3. `install-windows.bat` erneut ausführen
 4. `bun run build`
 5. `bun start`
