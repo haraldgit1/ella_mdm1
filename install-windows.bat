@@ -6,34 +6,39 @@ echo  Ella Edge Integration Hub - Installation
 echo ============================================
 echo.
 
-REM ---- Schritt 1: bun.exe bereitstellen ----
-where bun >nul 2>&1
-if errorlevel 1 (
-    if not exist "%~dp0bun.exe" (
-        echo Extrahiere bun.exe...
-        powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\bun-windows-x64.zip' -DestinationPath '%~dp0.bun-tmp' -Force"
-        move "%~dp0.bun-tmp\bun-windows-x64\bun.exe" "%~dp0bun.exe"
-        rmdir /s /q "%~dp0.bun-tmp"
-        if not exist "%~dp0bun.exe" (
-            echo FEHLER: bun.exe konnte nicht extrahiert werden.
-            pause
-            exit /b 1
-        )
-        echo bun.exe bereit.
-    ) else (
-        echo bun.exe bereits vorhanden.
+REM ---- Schritt 1: node.exe bereitstellen ----
+if not exist "%~dp0node.exe" (
+    echo Extrahiere node.exe...
+    powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\node-win.zip' -DestinationPath '%~dp0.node-tmp' -Force; Move-Item '%~dp0.node-tmp\node-v22.22.2-win-x64\node.exe' '%~dp0node.exe' -Force; Remove-Item '%~dp0.node-tmp' -Recurse -Force"
+    if not exist "%~dp0node.exe" (
+        echo FEHLER: node.exe konnte nicht extrahiert werden.
+        pause
+        exit /b 1
     )
-    set BUN=%~dp0bun.exe
+    echo node.exe bereit.
 ) else (
-    set BUN=bun
-    echo Bun bereits im PATH installiert.
+    echo node.exe bereits vorhanden.
+)
+
+REM ---- Schritt 2: bun.exe bereitstellen (nur fuer Package-Installation) ----
+if not exist "%~dp0bun.exe" (
+    echo Extrahiere bun.exe...
+    powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\bun-windows-x64.zip' -DestinationPath '%~dp0.bun-tmp' -Force; Move-Item '%~dp0.bun-tmp\bun-windows-x64\bun.exe' '%~dp0bun.exe' -Force; Remove-Item '%~dp0.bun-tmp' -Recurse -Force"
+    if not exist "%~dp0bun.exe" (
+        echo FEHLER: bun.exe konnte nicht extrahiert werden.
+        pause
+        exit /b 1
+    )
+    echo bun.exe bereit.
+) else (
+    echo bun.exe bereits vorhanden.
 )
 
 echo.
 
-REM ---- Schritt 2: Abhaengigkeiten installieren ----
+REM ---- Schritt 3: Abhaengigkeiten installieren ----
 echo Installiere Abhaengigkeiten...
-"%BUN%" install --ignore-scripts
+"%~dp0bun.exe" install --ignore-scripts
 
 if errorlevel 1 (
     echo FEHLER bei bun install!
@@ -41,7 +46,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM ---- Schritt 3: better-sqlite3 Windows-Binary einrichten ----
+REM ---- Schritt 4: better-sqlite3 Windows-Binary einrichten ----
 echo.
 echo Richte better-sqlite3 Binary ein...
 
@@ -60,7 +65,7 @@ if errorlevel 1 (
 REM ---- start.bat erstellen ----
 echo @echo off > "%~dp0start.bat"
 echo cd /d "%%~dp0" >> "%~dp0start.bat"
-echo "%~dp0bun.exe" start >> "%~dp0start.bat"
+echo "%~dp0node.exe" node_modules\next\dist\bin\next start >> "%~dp0start.bat"
 
 echo.
 echo ============================================
@@ -69,7 +74,7 @@ echo ============================================
 echo.
 echo Anwendung starten:
 echo   Doppelklick auf start.bat
-echo   oder: "%BUN%" start
+echo   oder: node.exe node_modules\next\dist\bin\next start
 echo.
 echo Browser: http://localhost:3000
 echo.
