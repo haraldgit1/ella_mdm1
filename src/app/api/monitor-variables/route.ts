@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/auth";
-import { getDb } from "@/lib/db/db";
+import { getDb, nextMonitorVariableId } from "@/lib/db/db";
 import { auditInsert } from "@/lib/audit/audit";
 import type { MonitorVariableInput } from "@/types/monitor";
 
@@ -39,20 +39,22 @@ export async function POST(request: NextRequest) {
   if (!body.data_type?.trim())    return Response.json({ error: "DataType ist Pflichtfeld" }, { status: 400 });
 
   const audit = auditInsert(session.user.email);
+  const valueId = nextMonitorVariableId();
 
   try {
     getDb().prepare(
       `INSERT INTO mdm_monitor_variable (
-        project_name, monitor_name, name, title, datablock, data_type, offset,
+        project_name, monitor_name, name, title, datablock, data_type, offset, value_id,
         create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version
       ) VALUES (
-        @project_name, @monitor_name, @name, @title, @datablock, @data_type, @offset,
+        @project_name, @monitor_name, @name, @title, @datablock, @data_type, @offset, @value_id,
         @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status, @version
       )`
     ).run({
       ...body,
       datablock: body.datablock?.trim() || null,
       offset: body.offset?.trim() || null,
+      value_id: valueId,
       ...audit,
     });
 

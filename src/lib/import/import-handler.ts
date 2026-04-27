@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db/db";
+import { getDb, nextMonitorVariableId } from "@/lib/db/db";
 import { auditInsert, auditUpdate } from "@/lib/audit/audit";
 import { parseCsv } from "./csv-parser";
 
@@ -219,12 +219,13 @@ function importRow(type: ImportType, row: Record<string, string>, user: string):
         return "updated";
       }
       const a = auditInsert(user);
+      const valueId = nextMonitorVariableId();
       db.prepare(
         `INSERT INTO mdm_monitor_variable (project_name,monitor_name,name,title,datablock,data_type,
-         offset,create_user,create_timestamp,modify_user,modify_timestamp,modify_status,version)
+         offset,value_id,create_user,create_timestamp,modify_user,modify_timestamp,modify_status,version)
          VALUES (@project_name,@monitor_name,@name,@title,@datablock,@data_type,
-         @offset,@create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status,1)`
-      ).run({ ...nullify(row), ...a });
+         @offset,@value_id,@create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status,1)`
+      ).run({ ...nullify(row), value_id: valueId, ...a });
       return "inserted";
     }
   }

@@ -223,6 +223,22 @@ CREATE INDEX IF NOT EXISTS idx_monitor_status       ON mdm_monitor(status);
 CREATE INDEX IF NOT EXISTS idx_monitor_modify_status ON mdm_monitor(modify_status);
 CREATE INDEX IF NOT EXISTS idx_monitor_variable     ON mdm_monitor_variable(project_name, monitor_name);
 
+-- Sequence table for mdm_monitor_variable surrogate keys (never delete rows)
+CREATE TABLE IF NOT EXISTS seq_monitor_variable (
+    value_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
+);
+
+-- Time-series table: alle 5 Sekunden abgefragte SPS-Werte
+CREATE TABLE IF NOT EXISTS ts_monitor_value (
+    id         INTEGER NOT NULL PRIMARY KEY,
+    ts         TEXT    NOT NULL,
+    value_id   INTEGER NOT NULL REFERENCES seq_monitor_variable(value_id),
+    value      REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_ts       ON ts_monitor_value(ts);
+CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_value_id ON ts_monitor_value(value_id, ts);
+
 -- better-auth Tabellen (user, session, account, verification)
 CREATE TABLE IF NOT EXISTS "user" (
     "id"            TEXT    NOT NULL PRIMARY KEY,

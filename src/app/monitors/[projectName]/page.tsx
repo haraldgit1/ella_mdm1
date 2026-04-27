@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, use, useCallback } from "react";
+import { useEffect, useState, use, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Monitor, MonitorVariable } from "@/types/monitor";
 import AuditInfo from "@/components/AuditInfo";
@@ -51,6 +51,9 @@ export default function MonitorDetailPage({
   const [editVarError, setEditVarError] = useState("");
   const [spsLoading, setSpsLoading] = useState(false);
   const [spsStatus, setSpsStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [tsImportLoading, setTsImportLoading] = useState(false);
+  const [tsImportStatus, setTsImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLocked = form.modify_status === "locked";
 
@@ -157,6 +160,24 @@ export default function MonitorDetailPage({
     }
   }
 
+  async function handleTsImport(file: File) {
+    setTsImportLoading(true);
+    setTsImportStatus(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("project_name", projectName);
+    fd.append("monitor_name", monitorName);
+    const res = await fetch("/api/ts-import", { method: "POST", body: fd });
+    const data = await res.json();
+    setTsImportLoading(false);
+    if (!res.ok) {
+      setTsImportStatus({ ok: false, msg: data.error ?? "Fehler" });
+    } else {
+      setTsImportStatus({ ok: true, msg: `${data.imported} Werte importiert, ${data.skipped} übersprungen` });
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function handleAddVariable(e: React.FormEvent) {
     e.preventDefault();
     setVarError("");
@@ -238,6 +259,22 @@ export default function MonitorDetailPage({
                 {spsStatus.ok ? "✓ " : "✗ "}{spsStatus.msg}
               </span>
             )}
+            {tsImportStatus && (
+              <span className={`text-xs font-medium ${tsImportStatus.ok ? "text-green-600" : "text-red-600"}`}>
+                {tsImportStatus.ok ? "✓ " : "✗ "}{tsImportStatus.msg}
+              </span>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,.txt"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleTsImport(f); }}
+            />
+            <button onClick={() => fileInputRef.current?.click()} disabled={tsImportLoading}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+              {tsImportLoading ? "Importiert…" : "Messwerte importieren"}
+            </button>
             <button onClick={handleCreateMonitorInterface} disabled={spsLoading}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
               {spsLoading ? "Erstellt…" : "SPS-Interface-Datei erstellen"}
