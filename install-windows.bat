@@ -50,16 +50,19 @@ REM ---- Schritt 4: better-sqlite3 Windows-Binary einrichten ----
 echo.
 echo Richte better-sqlite3 Binary ein...
 
-if not exist "node_modules\better-sqlite3\build\Release" (
-    mkdir "node_modules\better-sqlite3\build\Release"
-)
-
+REM In node_modules (fuer Laufzeit)
+if not exist "node_modules\better-sqlite3\build\Release" mkdir "node_modules\better-sqlite3\build\Release"
 tar -xzf deploy-assets\better-sqlite3-win-x64.tar.gz -C node_modules\better-sqlite3
-
 if errorlevel 1 (
     echo FEHLER: Konnte better-sqlite3 Binary nicht einrichten.
     pause
     exit /b 1
+)
+
+REM In .next\node_modules (Turbopack kopiert Mac-Binary beim Build dorthin)
+for /d %%D in (.next\node_modules\better-sqlite3-*) do (
+    if not exist "%%D\build\Release" mkdir "%%D\build\Release"
+    tar -xzf deploy-assets\better-sqlite3-win-x64.tar.gz -C "%%D"
 )
 
 REM ---- start.bat erstellen ----
