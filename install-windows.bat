@@ -6,18 +6,46 @@ echo  Ella Edge Integration Hub - Installation
 echo ============================================
 echo.
 
-REM Abhaengigkeiten installieren (ohne Kompilierung nativer Module)
+REM ---- Schritt 1: Bun installieren falls nicht vorhanden ----
+where bun >nul 2>&1
+if errorlevel 1 (
+    echo Bun nicht gefunden - wird aus deploy-assets installiert...
+    echo.
+
+    set BUN_DIR=%USERPROFILE%\.bun\bin
+    if not exist "%USERPROFILE%\.bun\bin" mkdir "%USERPROFILE%\.bun\bin"
+
+    powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\bun-windows-x64.zip' -DestinationPath '.bun-tmp' -Force; Move-Item '.bun-tmp\bun-windows-x64\bun.exe' '%USERPROFILE%\.bun\bin\bun.exe' -Force; Remove-Item '.bun-tmp' -Recurse -Force"
+
+    if not exist "%USERPROFILE%\.bun\bin\bun.exe" (
+        echo FEHLER: bun.exe konnte nicht extrahiert werden.
+        pause
+        exit /b 1
+    )
+
+    REM PATH fuer diese Session und dauerhaft setzen
+    set PATH=%USERPROFILE%\.bun\bin;%PATH%
+    setx PATH "%USERPROFILE%\.bun\bin;%PATH%" >nul 2>&1
+
+    echo Bun installiert: %USERPROFILE%\.bun\bin\bun.exe
+) else (
+    echo Bun bereits installiert.
+)
+
+echo.
+
+REM ---- Schritt 2: Abhaengigkeiten installieren ----
 echo Installiere Abhaengigkeiten...
 bun install --ignore-scripts
 
 if errorlevel 1 (
     echo.
-    echo FEHLER bei der Installation!
+    echo FEHLER bei bun install!
     pause
     exit /b 1
 )
 
-REM Pre-built better-sqlite3 Windows-Binary einrichten (kein Kompilieren noetig)
+REM ---- Schritt 3: better-sqlite3 Windows-Binary einrichten ----
 echo.
 echo Richte better-sqlite3 Windows-Binary ein...
 
@@ -42,5 +70,7 @@ echo Naechste Schritte:
 echo   1. bun run build
 echo   2. bun start
 echo   3. Browser: http://localhost:3000
+echo.
+echo HINWEIS: Neues Terminal oeffnen damit PATH aktualisiert ist.
 echo.
 pause
