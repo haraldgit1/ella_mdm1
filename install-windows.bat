@@ -6,37 +6,34 @@ echo  Ella Edge Integration Hub - Installation
 echo ============================================
 echo.
 
-REM ---- Schritt 1: Bun installieren falls nicht vorhanden ----
+REM ---- Schritt 1: bun.exe bereitstellen ----
 where bun >nul 2>&1
 if errorlevel 1 (
-    echo Bun nicht gefunden - wird aus deploy-assets installiert...
-    echo.
-
-    set BUN_DIR=%USERPROFILE%\.bun\bin
-    if not exist "%USERPROFILE%\.bun\bin" mkdir "%USERPROFILE%\.bun\bin"
-
-    powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\bun-windows-x64.zip' -DestinationPath '.bun-tmp' -Force; Move-Item '.bun-tmp\bun-windows-x64\bun.exe' '%USERPROFILE%\.bun\bin\bun.exe' -Force; Remove-Item '.bun-tmp' -Recurse -Force"
-
-    if not exist "%USERPROFILE%\.bun\bin\bun.exe" (
-        echo FEHLER: bun.exe konnte nicht extrahiert werden.
-        pause
-        exit /b 1
+    if not exist "%~dp0bun.exe" (
+        echo Extrahiere bun.exe...
+        powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\bun-windows-x64.zip' -DestinationPath '%~dp0.bun-tmp' -Force"
+        move "%~dp0.bun-tmp\bun-windows-x64\bun.exe" "%~dp0bun.exe"
+        rmdir /s /q "%~dp0.bun-tmp"
+        if not exist "%~dp0bun.exe" (
+            echo FEHLER: bun.exe konnte nicht extrahiert werden.
+            pause
+            exit /b 1
+        )
+        echo bun.exe bereit.
+    ) else (
+        echo bun.exe bereits vorhanden.
     )
-
-    REM PATH fuer diese Session und dauerhaft setzen
-    set PATH=%USERPROFILE%\.bun\bin;%PATH%
-    setx PATH "%USERPROFILE%\.bun\bin;%PATH%" >nul 2>&1
-
-    echo Bun installiert: %USERPROFILE%\.bun\bin\bun.exe
+    set BUN=%~dp0bun.exe
 ) else (
-    echo Bun bereits installiert.
+    set BUN=bun
+    echo Bun bereits im PATH installiert.
 )
 
 echo.
 
 REM ---- Schritt 2: Abhaengigkeiten installieren ----
 echo Installiere Abhaengigkeiten...
-bun install --ignore-scripts
+"%BUN%" install --ignore-scripts
 
 if errorlevel 1 (
     echo.
@@ -47,7 +44,7 @@ if errorlevel 1 (
 
 REM ---- Schritt 3: better-sqlite3 Windows-Binary einrichten ----
 echo.
-echo Richte better-sqlite3 Windows-Binary ein...
+echo Richte better-sqlite3 Binary ein...
 
 if not exist "node_modules\better-sqlite3\build\Release" (
     mkdir "node_modules\better-sqlite3\build\Release"
@@ -61,16 +58,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM ---- start.bat erstellen ----
+echo @echo off > "%~dp0start.bat"
+echo cd /d "%%~dp0" >> "%~dp0start.bat"
+echo "%~dp0bun.exe" start >> "%~dp0start.bat"
+
 echo.
 echo ============================================
 echo  Installation erfolgreich!
 echo ============================================
 echo.
 echo Naechste Schritte:
-echo   1. bun run build
-echo   2. bun start
+echo   1. "%BUN%" run build
+echo   2. "%BUN%" start        (oder Doppelklick start.bat)
 echo   3. Browser: http://localhost:3000
-echo.
-echo HINWEIS: Neues Terminal oeffnen damit PATH aktualisiert ist.
 echo.
 pause
