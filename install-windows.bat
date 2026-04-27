@@ -9,7 +9,7 @@ echo.
 REM ---- Schritt 1: node.exe bereitstellen ----
 if not exist "%~dp0node.exe" (
     echo Extrahiere node.exe...
-    powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\node-win.zip' -DestinationPath '%~dp0.node-tmp' -Force; Move-Item '%~dp0.node-tmp\node-v22.22.2-win-x64\node.exe' '%~dp0node.exe' -Force; Remove-Item '%~dp0.node-tmp' -Recurse -Force"
+    powershell -Command "Expand-Archive -LiteralPath 'deploy-assets\node-win.zip' -DestinationPath '%~dp0.node-tmp' -Force; Move-Item '%~dp0.node-tmp\node-v24.15.0-win-x64\node.exe' '%~dp0node.exe' -Force; Remove-Item '%~dp0.node-tmp' -Recurse -Force"
     if not exist "%~dp0node.exe" (
         echo FEHLER: node.exe konnte nicht extrahiert werden.
         pause
