@@ -21,8 +21,15 @@ const lookups = [
   { function_code: 200, code: "4", description: "Infrastruktur", function_text: "ProjectType" },
 
   // MonitorType (function_code = 400)
-  { function_code: 400, code: "1", description: "Meldung",     function_text: "MonitorType" },
-  { function_code: 400, code: "2", description: "Störung",     function_text: "MonitorType" },
+  { function_code: 400, code: "1", description: "Meldung",              function_text: "MonitorType" },
+  { function_code: 400, code: "2", description: "Störung",              function_text: "MonitorType" },
+
+  // AlarmClass (function_code = 500)
+  { function_code: 500, code: "1", description: "Acknowledgement",      function_text: "AlarmClass" },
+  { function_code: 500, code: "2", description: "Betriebsmeldungen",    function_text: "AlarmClass" },
+  { function_code: 500, code: "3", description: "Errors",               function_text: "AlarmClass" },
+  { function_code: 500, code: "4", description: "No Acknowledgement",   function_text: "AlarmClass" },
+  { function_code: 500, code: "5", description: "Warnings",             function_text: "AlarmClass" },
 ];
 
 const insert = db.prepare(`

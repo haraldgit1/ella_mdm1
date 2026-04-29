@@ -146,6 +146,7 @@ Das Schema wird beim ersten `getDb()`-Aufruf automatisch aus `schema.sql` einges
 | `mdm_project_email` | `project_name + email_address` | Ziel-E-Mails pro Projekt |
 | `mdm_monitor` | `project_name + monitor_name` | Monitor-Definitionen |
 | `mdm_monitor_variable` | `project_name + monitor_name + name` | Variablen pro Monitor |
+| `mdm_message_text` | `id` (AUTOINCREMENT) | Bitmeldungstexte mit SPS-Bit-Mapping |
 | `mdm_lookup` | `function_code + code` | Lookup-Werte für Dropdowns |
 | `mdm_import_log` | `import_id` | Protokoll CSV-Importe |
 | `mdm_sync_log` | `sync_id` | Protokoll Cloud-Sync |
@@ -159,6 +160,7 @@ Das Schema wird beim ersten `getDb()`-Aufruf automatisch aus `schema.sql` einges
 | 200 | ProjectType | Kraftwerk, Anlage, Gebäude, Infrastruktur |
 | 300 | DataType | (Variablen-Datentypen) |
 | 400 | MonitorType | 1=Meldung, 2=Störung |
+| 500 | AlarmClass | Acknowledgement, Betriebsmeldungen, Errors, No Acknowledgement, Warnings |
 
 ### Audit-Felder (in allen MDM-Tabellen)
 

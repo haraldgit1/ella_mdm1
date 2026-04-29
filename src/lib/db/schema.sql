@@ -239,6 +239,29 @@ CREATE TABLE IF NOT EXISTS ts_monitor_value (
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_ts       ON ts_monitor_value(ts);
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_value_id ON ts_monitor_value(value_id, ts);
 
+-- Meldungstexte mit Bit-Mapping (Siemens SPS HMI-Bitmeldungen)
+CREATE TABLE IF NOT EXISTS mdm_message_text (
+    id                    INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name                  TEXT    NOT NULL,
+    alarm_text            TEXT    NOT NULL,
+    alarm_class           TEXT,
+    trigger_tag           TEXT,
+    trigger_bit           INTEGER CHECK (trigger_bit IS NULL OR (trigger_bit >= 0 AND trigger_bit <= 15)),
+    trigger_address       TEXT,
+    create_user           TEXT    NOT NULL,
+    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user           TEXT    NOT NULL,
+    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
+                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version               INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_text_name         ON mdm_message_text(name);
+CREATE INDEX IF NOT EXISTS idx_message_text_alarm_class  ON mdm_message_text(alarm_class);
+CREATE INDEX IF NOT EXISTS idx_message_text_trigger_tag  ON mdm_message_text(trigger_tag);
+CREATE INDEX IF NOT EXISTS idx_message_text_status       ON mdm_message_text(modify_status);
+
 -- better-auth Tabellen (user, session, account, verification)
 CREATE TABLE IF NOT EXISTS "user" (
     "id"            TEXT    NOT NULL PRIMARY KEY,

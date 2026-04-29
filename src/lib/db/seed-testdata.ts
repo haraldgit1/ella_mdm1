@@ -57,9 +57,15 @@ const lookups = [
   { function_code: 200, code: "2", description: "Anlage",         function_text: "ProjectType" },
   { function_code: 200, code: "3", description: "Gebäude",        function_text: "ProjectType" },
   { function_code: 200, code: "4", description: "Infrastruktur",  function_text: "ProjectType" },
-  { function_code: 300, code: "1", description: "Bool",           function_text: "DataType" },
-  { function_code: 300, code: "2", description: "Int",            function_text: "DataType" },
-  { function_code: 300, code: "3", description: "Real",           function_text: "DataType" },
+  { function_code: 300, code: "1", description: "Bool",                  function_text: "DataType" },
+  { function_code: 300, code: "2", description: "Int",                   function_text: "DataType" },
+  { function_code: 300, code: "3", description: "Real",                  function_text: "DataType" },
+  // AlarmClass (function_code = 500)
+  { function_code: 500, code: "1", description: "Acknowledgement",       function_text: "AlarmClass" },
+  { function_code: 500, code: "2", description: "Betriebsmeldungen",     function_text: "AlarmClass" },
+  { function_code: 500, code: "3", description: "Errors",                function_text: "AlarmClass" },
+  { function_code: 500, code: "4", description: "No Acknowledgement",    function_text: "AlarmClass" },
+  { function_code: 500, code: "5", description: "Warnings",              function_text: "AlarmClass" },
 ];
 const insLookup = db.prepare(
   `INSERT OR IGNORE INTO mdm_lookup
@@ -247,6 +253,46 @@ db.prepare(
       @ts, 'success', 'Initiale Synchronisierung')`
 ).run({ ts: NOW });
 console.log("   ✓ 1 Sync-Log-Eintrag");
+
+// ─── 9. Meldungstexte (Bit-Mapping) ──────────────────────────────────────────
+console.log("9. Meldungstexte…");
+const messageTexts = [
+  // WINDPARK-NORD — WEA Bitmeldungen
+  { name: "WEA_Bitmeldung_01", alarm_text: "F 01 Not-Halt Auslösung",            alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 0,  trigger_address: "%DB31.DBX100.0" },
+  { name: "WEA_Bitmeldung_02", alarm_text: "F 02 Not-Halt Schütz Auslösung",     alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 1,  trigger_address: "%DB31.DBX100.1" },
+  { name: "WEA_Bitmeldung_03", alarm_text: "W 03 Übertemperatur Getriebe",       alarm_class: "Warnings",          trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 2,  trigger_address: "%DB31.DBX100.2" },
+  { name: "WEA_Bitmeldung_04", alarm_text: "W 04 Übertemperatur Generator",      alarm_class: "Warnings",          trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 3,  trigger_address: "%DB31.DBX100.3" },
+  { name: "WEA_Bitmeldung_05", alarm_text: "B 05 Wartungsmodus aktiv",           alarm_class: "Betriebsmeldungen", trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 4,  trigger_address: "%DB31.DBX100.4" },
+  { name: "WEA_Bitmeldung_06", alarm_text: "B 06 Anlage in Betrieb",             alarm_class: "Betriebsmeldungen", trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 5,  trigger_address: "%DB31.DBX100.5" },
+  { name: "WEA_Bitmeldung_07", alarm_text: "F 07 Überdrehzahl Rotor",            alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 6,  trigger_address: "%DB31.DBX100.6" },
+  { name: "WEA_Bitmeldung_08", alarm_text: "A 08 Windgeschwindigkeit zu hoch",   alarm_class: "Acknowledgement",   trigger_tag: "HMI Bereichszeiger.WEA_HMI_16_01", trigger_bit: 7,  trigger_address: "%DB31.DBX100.7" },
+
+  // SOLARPARK-SUED — Wechselrichter Bitmeldungen
+  { name: "INV_Bitmeldung_01", alarm_text: "F 01 DC-Überspannung",               alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.INV_HMI_16_01", trigger_bit: 0,  trigger_address: "%DB32.DBX103.0" },
+  { name: "INV_Bitmeldung_02", alarm_text: "F 02 AC-Netzausfall",                alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.INV_HMI_16_01", trigger_bit: 1,  trigger_address: "%DB32.DBX103.1" },
+  { name: "INV_Bitmeldung_03", alarm_text: "W 03 Ertrag unter Mindestschwelle",  alarm_class: "Warnings",          trigger_tag: "HMI Bereichszeiger.INV_HMI_16_01", trigger_bit: 2,  trigger_address: "%DB32.DBX103.2" },
+  { name: "INV_Bitmeldung_04", alarm_text: "B 04 Einspeisebetrieb aktiv",        alarm_class: "Betriebsmeldungen", trigger_tag: "HMI Bereichszeiger.INV_HMI_16_01", trigger_bit: 3,  trigger_address: "%DB32.DBX103.3" },
+  { name: "INV_Bitmeldung_05", alarm_text: "N 05 Schattenabschaltung",           alarm_class: "No Acknowledgement",trigger_tag: "HMI Bereichszeiger.INV_HMI_16_01", trigger_bit: 4,  trigger_address: "%DB32.DBX103.4" },
+
+  // BIOMASSE-WEST — Kessel Bitmeldungen
+  { name: "Kessel_Bitmeldung_01", alarm_text: "F 01 Druckabsicherung ausgelöst", alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.GM_HMI_16_01",  trigger_bit: 0,  trigger_address: "%DB33.DBX106.0" },
+  { name: "Kessel_Bitmeldung_02", alarm_text: "F 02 Kesseltemperatur kritisch",  alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.GM_HMI_16_01",  trigger_bit: 1,  trigger_address: "%DB33.DBX106.1" },
+  { name: "Kessel_Bitmeldung_03", alarm_text: "W 03 Brennstoffzufuhr gering",    alarm_class: "Warnings",          trigger_tag: "HMI Bereichszeiger.GM_HMI_16_01",  trigger_bit: 2,  trigger_address: "%DB33.DBX106.2" },
+  { name: "Kessel_Bitmeldung_04", alarm_text: "B 04 Kessel in Betrieb",          alarm_class: "Betriebsmeldungen", trigger_tag: "HMI Bereichszeiger.GM_HMI_16_01",  trigger_bit: 3,  trigger_address: "%DB33.DBX106.3" },
+  { name: "Kessel_Bitmeldung_05", alarm_text: "A 05 Wartung fällig",             alarm_class: "Acknowledgement",   trigger_tag: "HMI Bereichszeiger.GM_HMI_16_01",  trigger_bit: 4,  trigger_address: "%DB33.DBX106.4" },
+  { name: "Kessel_Bitmeldung_06", alarm_text: "F 06 Notabschaltung ausgelöst",   alarm_class: "Errors",            trigger_tag: "HMI Bereichszeiger.GM_HMI_16_01",  trigger_bit: 5,  trigger_address: "%DB33.DBX106.5" },
+];
+
+const insMsgText = db.prepare(
+  `INSERT OR IGNORE INTO mdm_message_text
+     (name, alarm_text, alarm_class, trigger_tag, trigger_bit, trigger_address,
+      create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version)
+   VALUES
+     (@name, @alarm_text, @alarm_class, @trigger_tag, @trigger_bit, @trigger_address,
+      @u, @ts, @u, @ts, 'inserted', 1)`
+);
+db.transaction(() => messageTexts.forEach((m) => insMsgText.run({ ...m, u: USER, ts: NOW })))();
+console.log(`   ✓ ${messageTexts.length} Meldungstexte`);
 
 console.log("\n✅ Seed abgeschlossen.");
 console.log(`   Login:    ${USER}`);
