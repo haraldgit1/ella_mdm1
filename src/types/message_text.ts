@@ -6,6 +6,10 @@ export interface MessageText {
   trigger_tag: string | null;
   trigger_bit: number | null;
   trigger_address: string | null;
+  hmi_acknowledgment_tag: string | null;
+  hmi_acknowledgment_bit: number | null;
+  hmi_acknowledgment_address: string | null;
+  report: number;
   create_user: string;
   create_timestamp: string;
   modify_user: string;
@@ -21,4 +25,8 @@ export interface MessageTextInput {
   trigger_tag?: string | null;
   trigger_bit?: number | null;
   trigger_address?: string | null;
+  hmi_acknowledgment_tag?: string | null;
+  hmi_acknowledgment_bit?: number | null;
+  hmi_acknowledgment_address?: string | null;
+  report?: number;
 }

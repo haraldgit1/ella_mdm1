@@ -47,6 +47,14 @@ function runMigrations(db: Database.Database) {
     addColumnIfMissing(db, "session", "impersonatedBy", "TEXT");
   }
 
+  // ── mdm_message_text: HMI-Quittierung + Report-Flag ──────────────────────
+  if (tableNames.includes("mdm_message_text")) {
+    addColumnIfMissing(db, "mdm_message_text", "hmi_acknowledgment_tag",     "TEXT");
+    addColumnIfMissing(db, "mdm_message_text", "hmi_acknowledgment_bit",     "INTEGER");
+    addColumnIfMissing(db, "mdm_message_text", "hmi_acknowledgment_address", "TEXT");
+    addColumnIfMissing(db, "mdm_message_text", "report",                     "INTEGER NOT NULL DEFAULT 0");
+  }
+
   // Add value_id column to mdm_monitor_variable (SQLite: ADD COLUMN is safe to run multiple times via the check)
   const cols = db.prepare("PRAGMA table_info(mdm_monitor_variable)").all() as { name: string }[];
   if (!cols.some((c) => c.name === "value_id")) {
