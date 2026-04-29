@@ -28,6 +28,22 @@ try {
     console.log(`   — Fehler: ${msg}`);
   }
 }
+// Admin-Rolle setzen (Spalte ggf. erst anlegen)
+try {
+  const userCols = db.prepare("PRAGMA table_info(user)").all() as { name: string }[];
+  if (!userCols.some((c) => c.name === "role")) {
+    db.exec("ALTER TABLE user ADD COLUMN role TEXT");
+  }
+  if (!userCols.some((c) => c.name === "banned")) {
+    db.exec("ALTER TABLE user ADD COLUMN banned INTEGER DEFAULT 0");
+    db.exec("ALTER TABLE user ADD COLUMN banReason TEXT");
+    db.exec("ALTER TABLE user ADD COLUMN banExpires DATETIME");
+  }
+  db.prepare("UPDATE user SET role = 'admin' WHERE email = ?").run(USER);
+  console.log(`   ✓ Rolle 'admin' gesetzt`);
+} catch (err) {
+  console.log(`   — Fehler beim Setzen der Rolle: ${err}`);
+}
 
 // ─── 2. Lookup-Daten (INSERT OR IGNORE) ─────────────────────────────────────
 console.log("2. Lookup-Daten…");

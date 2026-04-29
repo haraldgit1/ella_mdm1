@@ -299,6 +299,7 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 | Reports | 🔲 offen | Nur Platzhalter-Seite |
 | Lookup-Verwaltung | 🔲 offen | Nur Seed-Daten, keine UI |
 | Cloud-Sync (REST) | 🔲 offen | Noch nicht implementiert |
+| Benutzer & Rollen | ✅ fertig | Liste, Neu, Bearbeiten, Sperren/Entsperren, Passwort setzen (nur Admins) |
 
 ---
 
@@ -308,7 +309,7 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 2. **Lookup-Verwaltung** — UI für `mdm_lookup` (Dropdowns befüllen)
 3. **Event Rules / Events / Actions** — Monitoring-Unterbereich (Dashboard: geplant)
 4. **Cloud-Sync** — REST-API-Anbindung an Ella-Energy (AWS)
-5. **Passwort ändern / Benutzer-Verwaltung** — aktuell nur Signup
+5. ~~**Passwort ändern / Benutzer-Verwaltung**~~ — ✅ implementiert (Liste, Neu, Bearbeiten, Sperren, Passwort setzen; nur für Admins)
 
 ---
 

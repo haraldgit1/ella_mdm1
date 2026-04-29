@@ -23,7 +23,30 @@ export function nextMonitorVariableId(): number {
   return Number(lastInsertRowid);
 }
 
+function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 function runMigrations(db: Database.Database) {
+  // ── better-auth admin plugin: extend user + session tables if they exist ──
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table'"
+  ).all() as { name: string }[];
+  const tableNames = tables.map((t) => t.name);
+
+  if (tableNames.includes("user")) {
+    addColumnIfMissing(db, "user", "role",      "TEXT");
+    addColumnIfMissing(db, "user", "banned",    "INTEGER DEFAULT 0");
+    addColumnIfMissing(db, "user", "banReason", "TEXT");
+    addColumnIfMissing(db, "user", "banExpires","DATETIME");
+  }
+  if (tableNames.includes("session")) {
+    addColumnIfMissing(db, "session", "impersonatedBy", "TEXT");
+  }
+
   // Add value_id column to mdm_monitor_variable (SQLite: ADD COLUMN is safe to run multiple times via the check)
   const cols = db.prepare("PRAGMA table_info(mdm_monitor_variable)").all() as { name: string }[];
   if (!cols.some((c) => c.name === "value_id")) {

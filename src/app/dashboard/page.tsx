@@ -59,7 +59,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Import CSV",         icon: "⬆️",  href: "/import" },
       { label: "Export CSV",         icon: "⬇️",  href: "/export" },
-      { label: "Benutzer & Rollen",  icon: "👤", planned: true   },
+      { label: "Benutzer & Rollen",  icon: "👤", href: "/users"  },
       { label: "Kommunikation",      icon: "📡", planned: true   },
       { label: "Logging & Diagnose", icon: "🔍", planned: true   },
     ],
