@@ -91,9 +91,12 @@ function toBitValue(value: number | null): string | null {
 }
 
 /**
- * Liefert einen Adress-Datensatz pro gesetztem Bit (Index von links, aufsteigend → pos=1 ist niedrigstes Bit).
- * trigger_address = "%{datablock}.{offset_ohne_letztes_bit}.{trigger_bit}"
- * Beispiel: datablock="DB31", offset="DBX104.0", bit=8 → "%DB31.DBX104.8"
+ * 16-bit = Byte1 (bits 0-7) + Byte2 (bits 8-15).
+ * Byte1 → offset+1, bit in address = trigger_bit (0-7)
+ * Byte2 → offset unchanged, bit in address = trigger_bit - 8
+ * Beispiel: offset="102.0" → Byte1 uses "103", Byte2 uses "102"
+ *   trigger_bit=3  → "%DB31.103.3"
+ *   trigger_bit=8  → "%DB31.102.0"
  */
 function buildAddresses(
   tsId: number,
@@ -112,10 +115,20 @@ function buildAddresses(
   const dotIdx = offset ? offset.lastIndexOf(".") : -1;
   const offsetBase = dotIdx > 0 ? offset!.substring(0, dotIdx) : offset;
 
-  return setBits.map((bit, i) => ({
-    id: tsId,
-    pos: i + 1,
-    trigger_bit: bit,
-    trigger_address: datablock && offsetBase ? `%${datablock}.${offsetBase}.${bit}` : null,
-  }));
+  // Split offsetBase into text prefix + trailing number so we can increment for Byte1
+  const numMatch = offsetBase ? offsetBase.match(/^(.*?)(\d+)$/) : null;
+  const offsetByte2 = numMatch ? `${numMatch[1]}${numMatch[2]}` : offsetBase;
+  const offsetByte1 = numMatch ? `${numMatch[1]}${parseInt(numMatch[2]) + 1}` : offsetBase;
+
+  return setBits.map((bit, i) => {
+    let trigger_address: string | null = null;
+    if (datablock) {
+      if (bit < 8) {
+        trigger_address = offsetByte1 ? `%${datablock}.${offsetByte1}.${bit}` : null;
+      } else {
+        trigger_address = offsetByte2 ? `%${datablock}.${offsetByte2}.${bit - 8}` : null;
+      }
+    }
+    return { id: tsId, pos: i + 1, trigger_bit: bit, trigger_address };
+  });
 }
