@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db/db";
 import { importCsv, type ImportType } from "@/lib/import/import-handler";
 import { randomUUID } from "crypto";
 
-const VALID_TYPES: ImportType[] = ["projects", "devices", "alarms", "emails", "lookups", "variables", "monitor_variables"];
+const VALID_TYPES: ImportType[] = ["projects", "devices", "alarms", "emails", "lookups", "variables", "monitor_variables", "message_texts"];
 const VALID_CHARSETS = ["utf-8", "windows-1252", "iso-8859-1"];
 
 export async function POST(request: NextRequest) {
