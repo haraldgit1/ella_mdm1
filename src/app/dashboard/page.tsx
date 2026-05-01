@@ -22,8 +22,9 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Projekte",  icon: "🗂",  href: "/projects"  },
       { label: "Devices",   icon: "📡",  href: "/devices"   },
-      { label: "Variablen", icon: "📋",  href: "/variables" },
-      { label: "Lookups",   icon: "🔖",  href: "/lookups"   },
+      { label: "Variablen",     icon: "📋",  href: "/variables"      },
+      { label: "Meldungstexte", icon: "📝",  href: "/message-texts"  },
+      { label: "Lookups",       icon: "🔖",  href: "/lookups"        },
     ],
   },
   {
