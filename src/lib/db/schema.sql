@@ -240,6 +240,16 @@ CREATE TABLE IF NOT EXISTS ts_monitor_value (
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_ts       ON ts_monitor_value(ts);
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_value_id ON ts_monitor_value(value_id, ts);
 
+-- Detail-Tabelle: gesetzte Bits pro ts_monitor_value-Eintrag
+CREATE TABLE IF NOT EXISTS ts_monitor_value_address (
+    id              INTEGER NOT NULL,
+    pos             INTEGER NOT NULL,
+    trigger_bit     INTEGER NOT NULL,
+    trigger_address TEXT,
+    PRIMARY KEY (id, pos),
+    FOREIGN KEY (id) REFERENCES ts_monitor_value(id) ON DELETE CASCADE
+);
+
 -- Meldungstexte mit Bit-Mapping (Siemens SPS HMI-Bitmeldungen)
 CREATE TABLE IF NOT EXISTS mdm_message_text (
     project_name               TEXT    NOT NULL,

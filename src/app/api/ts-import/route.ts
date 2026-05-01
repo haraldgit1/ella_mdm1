@@ -35,29 +35,46 @@ export async function POST(request: NextRequest) {
 
   const db = getDb();
 
-  // Build varName → value_id lookup for this monitor
+  // Build varName → {value_id, datablock, offset} lookup for this monitor
   const varRows = db.prepare(
-    `SELECT name, value_id FROM mdm_monitor_variable
+    `SELECT name, value_id, datablock, offset FROM mdm_monitor_variable
      WHERE project_name = ? AND monitor_name = ? AND modify_status != 'deleted' AND value_id IS NOT NULL`
-  ).all(projectName, monitorName) as { name: string; value_id: number }[];
+  ).all(projectName, monitorName) as {
+    name: string; value_id: number; datablock: string | null; offset: string | null
+  }[];
 
   if (varRows.length === 0) {
     return Response.json({ error: "Keine Variablen mit value_id für diesen Monitor gefunden" }, { status: 404 });
   }
 
-  const valueIdMap = new Map(varRows.map((r) => [r.name, r.value_id]));
-  const insert = db.prepare("INSERT INTO ts_monitor_value (ts, value_id, value, bit_value) VALUES (?, ?, ?, ?)");
+  const varInfoMap = new Map(varRows.map((r) => [r.name, r]));
+
+  const insertTs   = db.prepare("INSERT INTO ts_monitor_value (ts, value_id, value, bit_value) VALUES (?, ?, ?, ?)");
+  const insertAddr = db.prepare(
+    "INSERT INTO ts_monitor_value_address (id, pos, trigger_bit, trigger_address) VALUES (?, ?, ?, ?)"
+  );
 
   let imported = 0;
   let skipped = 0;
 
   db.transaction(() => {
     for (const [varName, val] of Object.entries(values)) {
-      const valueId = valueIdMap.get(varName);
-      if (valueId == null) { skipped++; continue; }
+      const info = varInfoMap.get(varName);
+      if (!info) { skipped++; continue; }
+
       const num = typeof val === "number" ? val : parseFloat(String(val));
       const numOrNull = isNaN(num) ? null : num;
-      insert.run(ts, valueId, numOrNull, toBitValue(numOrNull));
+      const bv = toBitValue(numOrNull);
+
+      const { lastInsertRowid } = insertTs.run(ts, info.value_id, numOrNull, bv);
+
+      if (bv !== null) {
+        const tsId = Number(lastInsertRowid);
+        for (const addr of buildAddresses(tsId, bv, info.datablock, info.offset)) {
+          insertAddr.run(addr.id, addr.pos, addr.trigger_bit, addr.trigger_address);
+        }
+      }
+
       imported++;
     }
   })();
@@ -71,4 +88,34 @@ function toBitValue(value: number | null): string | null {
   const intVal = Math.round(value);
   if (intVal <= 0) return null;
   return intVal.toString(2).padStart(16, "0");
+}
+
+/**
+ * Liefert einen Adress-Datensatz pro gesetztem Bit (LSB=0, absteigend sortiert → pos=1 ist höchstes Bit).
+ * trigger_address = "%{datablock}.{offset_ohne_letztes_bit}.{trigger_bit}"
+ * Beispiel: datablock="DB31", offset="DBX104.0", bit=2 → "%DB31.DBX104.2"
+ */
+function buildAddresses(
+  tsId: number,
+  bitValue: string,
+  datablock: string | null,
+  offset: string | null
+): { id: number; pos: number; trigger_bit: number; trigger_address: string | null }[] {
+  const setBits: number[] = [];
+  for (let i = 0; i < bitValue.length; i++) {
+    if (bitValue[i] === "1") {
+      setBits.push(bitValue.length - 1 - i); // LSB=0: rechtestes Zeichen = Bit 0
+    }
+  }
+  setBits.sort((a, b) => b - a); // absteigend: höchstes Bit → pos=1
+
+  const dotIdx = offset ? offset.lastIndexOf(".") : -1;
+  const offsetBase = dotIdx > 0 ? offset!.substring(0, dotIdx) : offset;
+
+  return setBits.map((bit, i) => ({
+    id: tsId,
+    pos: i + 1,
+    trigger_bit: bit,
+    trigger_address: datablock && offsetBase ? `%${datablock}.${offsetBase}.${bit}` : null,
+  }));
 }
