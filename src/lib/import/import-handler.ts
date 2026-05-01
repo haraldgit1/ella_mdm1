@@ -2,7 +2,7 @@ import { getDb, nextMonitorVariableId } from "@/lib/db/db";
 import { auditInsert, auditUpdate } from "@/lib/audit/audit";
 import { parseCsv } from "./csv-parser";
 
-export type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables" | "monitor_variables";
+export type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables" | "monitor_variables" | "message_texts";
 
 export interface ImportResult {
   imported: number;
@@ -226,6 +226,62 @@ function importRow(type: ImportType, row: Record<string, string>, user: string):
          VALUES (@project_name,@monitor_name,@name,@title,@datablock,@data_type,
          @offset,@value_id,@create_user,@create_timestamp,@modify_user,@modify_timestamp,@modify_status,1)`
       ).run({ ...nullify(row), value_id: valueId, ...a });
+      return "inserted";
+    }
+
+    case "message_texts": {
+      if (!row.project_name)  throw new Error("project_name fehlt");
+      if (!row.message_name)  throw new Error("message_name fehlt");
+      if (!row.message_text)  throw new Error("message_text fehlt");
+      const existing = db.prepare(
+        "SELECT 1 FROM mdm_message_text WHERE project_name=? AND message_name=?"
+      ).get(row.project_name, row.message_name);
+      if (existing) {
+        const a = auditUpdate(user);
+        db.prepare(
+          `UPDATE mdm_message_text
+           SET message_text=@message_text, message_class=@message_class,
+               trigger_tag=@trigger_tag, trigger_bit=@trigger_bit, trigger_address=@trigger_address,
+               hmi_acknowledgment_tag=@hmi_acknowledgment_tag,
+               hmi_acknowledgment_bit=@hmi_acknowledgment_bit,
+               hmi_acknowledgment_address=@hmi_acknowledgment_address,
+               report=@report,
+               modify_user=@modify_user, modify_timestamp=@modify_timestamp, modify_status=@modify_status
+           WHERE project_name=@project_name AND message_name=@message_name`
+        ).run({
+          ...nullify(row),
+          trigger_bit:           row.trigger_bit           !== "" ? Number(row.trigger_bit)           : null,
+          hmi_acknowledgment_bit: row.hmi_acknowledgment_bit !== "" ? Number(row.hmi_acknowledgment_bit) : null,
+          report:                row.report === "1" ? 1 : 0,
+          ...a,
+        });
+        return "updated";
+      }
+      const a = auditInsert(user);
+      const { max_id } = db.prepare(
+        "SELECT COALESCE(MAX(id), 0) AS max_id FROM mdm_message_text WHERE project_name = ?"
+      ).get(row.project_name) as { max_id: number };
+      db.prepare(
+        `INSERT INTO mdm_message_text
+          (project_name, message_name, id, message_text, message_class,
+           trigger_tag, trigger_bit, trigger_address,
+           hmi_acknowledgment_tag, hmi_acknowledgment_bit, hmi_acknowledgment_address,
+           report,
+           create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version)
+         VALUES
+          (@project_name, @message_name, @id, @message_text, @message_class,
+           @trigger_tag, @trigger_bit, @trigger_address,
+           @hmi_acknowledgment_tag, @hmi_acknowledgment_bit, @hmi_acknowledgment_address,
+           @report,
+           @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status, @version)`
+      ).run({
+        ...nullify(row),
+        id:                    max_id + 1,
+        trigger_bit:           row.trigger_bit           !== "" ? Number(row.trigger_bit)           : null,
+        hmi_acknowledgment_bit: row.hmi_acknowledgment_bit !== "" ? Number(row.hmi_acknowledgment_bit) : null,
+        report:                row.report === "1" ? 1 : 0,
+        ...a,
+      });
       return "inserted";
     }
   }

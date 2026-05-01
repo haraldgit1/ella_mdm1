@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 
-type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables" | "monitor_variables";
+type ImportType = "projects" | "devices" | "alarms" | "emails" | "lookups" | "variables" | "monitor_variables" | "message_texts";
 
 const TYPE_OPTIONS: { value: ImportType; label: string }[] = [
   { value: "projects",          label: "Projekte" },
@@ -13,6 +13,7 @@ const TYPE_OPTIONS: { value: ImportType; label: string }[] = [
   { value: "lookups",           label: "Lookup-Werte" },
   { value: "variables",         label: "Device-Variablen" },
   { value: "monitor_variables", label: "Monitor-Variablen" },
+  { value: "message_texts",     label: "Meldungstexte" },
 ];
 
 const TEMPLATES: Record<ImportType, string> = {
@@ -23,6 +24,7 @@ const TEMPLATES: Record<ImportType, string> = {
   lookups:           "function_code,code,description,function_text\n100,6,Pumpe2,DeviceType",
   variables:         "project_name,device_name,name,title,datablock,data_type,offset,range,unit\nProjekt1,Device1,Leistung,Aktuelle Leistung,DB10,3,DB10.DBD0,0..2500,kW",
   monitor_variables: "project_name;monitor_name;name;title;datablock;data_type;offset\nProjekt1;Monitor1;Leistung;Aktuelle Leistung;DB10;3;DB10.DBD0",
+  message_texts:     "project_name;message_name;message_text;message_class;trigger_tag;trigger_bit;trigger_address;hmi_acknowledgment_tag;hmi_acknowledgment_bit;hmi_acknowledgment_address;report\nWINDPARK-NORD;WEA_Bitmeldung_09;F 09 Beispielfehler;Errors;HMI Bereichszeiger.WEA_HMI_16_01;8;%DB31.DBX100.8;HMI Fehler Quitt WEA_HMI_16_01;8;%DB31.DBX403.8;1",
 };
 
 interface ImportResult {
