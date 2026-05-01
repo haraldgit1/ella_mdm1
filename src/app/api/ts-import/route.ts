@@ -91,9 +91,9 @@ function toBitValue(value: number | null): string | null {
 }
 
 /**
- * Liefert einen Adress-Datensatz pro gesetztem Bit (LSB=0, absteigend sortiert → pos=1 ist höchstes Bit).
+ * Liefert einen Adress-Datensatz pro gesetztem Bit (Index von links, aufsteigend → pos=1 ist niedrigstes Bit).
  * trigger_address = "%{datablock}.{offset_ohne_letztes_bit}.{trigger_bit}"
- * Beispiel: datablock="DB31", offset="DBX104.0", bit=2 → "%DB31.DBX104.2"
+ * Beispiel: datablock="DB31", offset="DBX104.0", bit=8 → "%DB31.DBX104.8"
  */
 function buildAddresses(
   tsId: number,
@@ -104,10 +104,10 @@ function buildAddresses(
   const setBits: number[] = [];
   for (let i = 0; i < bitValue.length; i++) {
     if (bitValue[i] === "1") {
-      setBits.push(bitValue.length - 1 - i); // LSB=0: rechtestes Zeichen = Bit 0
+      setBits.push(i); // left-to-right index = trigger_bit
     }
   }
-  setBits.sort((a, b) => b - a); // absteigend: höchstes Bit → pos=1
+  setBits.sort((a, b) => a - b); // aufsteigend: niedrigstes Bit → pos=1
 
   const dotIdx = offset ? offset.lastIndexOf(".") : -1;
   const offsetBase = dotIdx > 0 ? offset!.substring(0, dotIdx) : offset;
