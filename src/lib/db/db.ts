@@ -105,6 +105,9 @@ function runMigrations(db: Database.Database) {
     }
   }
 
+  // ── ts_monitor_value: bit_value ───────────────────────────────────────────
+  addColumnIfMissing(db, "ts_monitor_value", "bit_value", "TEXT");
+
   // Add value_id column to mdm_monitor_variable (SQLite: ADD COLUMN is safe to run multiple times via the check)
   const cols = db.prepare("PRAGMA table_info(mdm_monitor_variable)").all() as { name: string }[];
   if (!cols.some((c) => c.name === "value_id")) {

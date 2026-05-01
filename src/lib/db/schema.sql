@@ -233,7 +233,8 @@ CREATE TABLE IF NOT EXISTS ts_monitor_value (
     id         INTEGER NOT NULL PRIMARY KEY,
     ts         TEXT    NOT NULL,
     value_id   INTEGER NOT NULL REFERENCES seq_monitor_variable(value_id),
-    value      REAL
+    value      REAL,
+    bit_value  TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_ts       ON ts_monitor_value(ts);

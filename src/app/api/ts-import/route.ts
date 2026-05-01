@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const valueIdMap = new Map(varRows.map((r) => [r.name, r.value_id]));
-  const insert = db.prepare("INSERT INTO ts_monitor_value (ts, value_id, value) VALUES (?, ?, ?)");
+  const insert = db.prepare("INSERT INTO ts_monitor_value (ts, value_id, value, bit_value) VALUES (?, ?, ?, ?)");
 
   let imported = 0;
   let skipped = 0;
@@ -56,10 +56,19 @@ export async function POST(request: NextRequest) {
       const valueId = valueIdMap.get(varName);
       if (valueId == null) { skipped++; continue; }
       const num = typeof val === "number" ? val : parseFloat(String(val));
-      insert.run(ts, valueId, isNaN(num) ? null : num);
+      const numOrNull = isNaN(num) ? null : num;
+      insert.run(ts, valueId, numOrNull, toBitValue(numOrNull));
       imported++;
     }
   })();
 
   return Response.json({ imported, skipped, ts });
+}
+
+/** value=0 oder null → null; sonst 16-stellige Binärdarstellung (z.B. 10 → "0000000000001010") */
+function toBitValue(value: number | null): string | null {
+  if (value === null || value === 0) return null;
+  const intVal = Math.round(value);
+  if (intVal <= 0) return null;
+  return intVal.toString(2).padStart(16, "0");
 }
