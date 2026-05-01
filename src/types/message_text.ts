@@ -1,8 +1,9 @@
 export interface MessageText {
+  project_name: string;
+  message_name: string;
   id: number;
-  name: string;
-  alarm_text: string;
-  alarm_class: string | null;
+  message_text: string;
+  message_class: string | null;
   trigger_tag: string | null;
   trigger_bit: number | null;
   trigger_address: string | null;
@@ -19,9 +20,10 @@ export interface MessageText {
 }
 
 export interface MessageTextInput {
-  name: string;
-  alarm_text: string;
-  alarm_class?: string | null;
+  project_name: string;
+  message_name: string;
+  message_text: string;
+  message_class?: string | null;
   trigger_tag?: string | null;
   trigger_bit?: number | null;
   trigger_address?: string | null;

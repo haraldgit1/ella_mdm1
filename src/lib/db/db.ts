@@ -9,6 +9,7 @@ export function getDb(): Database.Database {
     _db = new Database(path.join(process.cwd(), "ella_mdm.db"));
     _db.pragma("foreign_keys = ON");
     _db.pragma("journal_mode = WAL");
+    preInitMigrations(_db);
     initSchema(_db);
     runMigrations(_db);
   }
@@ -30,6 +31,23 @@ function addColumnIfMissing(db: Database.Database, table: string, column: string
   }
 }
 
+/** Drops tables with obsolete structure before initSchema recreates them. */
+function preInitMigrations(db: Database.Database) {
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table'"
+  ).all() as { name: string }[];
+  if (tables.some((t) => t.name === "mdm_message_text")) {
+    const cols = db.prepare("PRAGMA table_info(mdm_message_text)").all() as { name: string }[];
+    if (!cols.some((c) => c.name === "message_name")) {
+      db.exec("DROP TABLE IF EXISTS mdm_message_text");
+      db.exec("DROP INDEX IF EXISTS idx_message_text_name");
+      db.exec("DROP INDEX IF EXISTS idx_message_text_alarm_class");
+      db.exec("DROP INDEX IF EXISTS idx_message_text_trigger_tag");
+      db.exec("DROP INDEX IF EXISTS idx_message_text_status");
+    }
+  }
+}
+
 function runMigrations(db: Database.Database) {
   // ── better-auth admin plugin: extend user + session tables if they exist ──
   const tables = db.prepare(
@@ -47,12 +65,44 @@ function runMigrations(db: Database.Database) {
     addColumnIfMissing(db, "session", "impersonatedBy", "TEXT");
   }
 
-  // ── mdm_message_text: HMI-Quittierung + Report-Flag ──────────────────────
+  // ── mdm_message_text: Rebuild mit neuem PK (project_name, message_name) ──
   if (tableNames.includes("mdm_message_text")) {
-    addColumnIfMissing(db, "mdm_message_text", "hmi_acknowledgment_tag",     "TEXT");
-    addColumnIfMissing(db, "mdm_message_text", "hmi_acknowledgment_bit",     "INTEGER");
-    addColumnIfMissing(db, "mdm_message_text", "hmi_acknowledgment_address", "TEXT");
-    addColumnIfMissing(db, "mdm_message_text", "report",                     "INTEGER NOT NULL DEFAULT 0");
+    const msgCols = db.prepare("PRAGMA table_info(mdm_message_text)").all() as { name: string }[];
+    if (!msgCols.some((c) => c.name === "message_name")) {
+      db.exec("DROP TABLE IF EXISTS mdm_message_text");
+      db.exec(`
+        CREATE TABLE mdm_message_text (
+          project_name               TEXT    NOT NULL,
+          message_name               TEXT    NOT NULL,
+          id                         INTEGER NOT NULL,
+          message_text               TEXT    NOT NULL,
+          message_class              TEXT,
+          trigger_tag                TEXT,
+          trigger_bit                INTEGER CHECK (trigger_bit IS NULL OR (trigger_bit >= 0 AND trigger_bit <= 15)),
+          trigger_address            TEXT,
+          hmi_acknowledgment_tag     TEXT,
+          hmi_acknowledgment_bit     INTEGER CHECK (hmi_acknowledgment_bit IS NULL OR (hmi_acknowledgment_bit >= 0 AND hmi_acknowledgment_bit <= 15)),
+          hmi_acknowledgment_address TEXT,
+          report                     INTEGER NOT NULL DEFAULT 0 CHECK (report IN (0, 1)),
+          create_user                TEXT    NOT NULL,
+          create_timestamp           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          modify_user                TEXT    NOT NULL,
+          modify_timestamp           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          modify_status              TEXT    NOT NULL DEFAULT 'inserted'
+                                            CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+          version                    INTEGER NOT NULL DEFAULT 1,
+          PRIMARY KEY (project_name, message_name),
+          FOREIGN KEY (project_name)
+              REFERENCES mdm_project(project_name)
+              ON UPDATE CASCADE
+              ON DELETE RESTRICT
+        )
+      `);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_message_text_project       ON mdm_message_text(project_name)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_message_text_message_class ON mdm_message_text(message_class)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_message_text_trigger_tag   ON mdm_message_text(trigger_tag)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_message_text_status        ON mdm_message_text(modify_status)`);
+    }
   }
 
   // Add value_id column to mdm_monitor_variable (SQLite: ADD COLUMN is safe to run multiple times via the check)

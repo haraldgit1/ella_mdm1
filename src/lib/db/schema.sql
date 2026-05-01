@@ -241,30 +241,36 @@ CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_value_id ON ts_monitor_value(val
 
 -- Meldungstexte mit Bit-Mapping (Siemens SPS HMI-Bitmeldungen)
 CREATE TABLE IF NOT EXISTS mdm_message_text (
-    id                    INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    name                  TEXT    NOT NULL,
-    alarm_text            TEXT    NOT NULL,
-    alarm_class           TEXT,
-    trigger_tag               TEXT,
-    trigger_bit               INTEGER CHECK (trigger_bit IS NULL OR (trigger_bit >= 0 AND trigger_bit <= 15)),
-    trigger_address           TEXT,
-    hmi_acknowledgment_tag    TEXT,
-    hmi_acknowledgment_bit    INTEGER CHECK (hmi_acknowledgment_bit IS NULL OR (hmi_acknowledgment_bit >= 0 AND hmi_acknowledgment_bit <= 15)),
+    project_name               TEXT    NOT NULL,
+    message_name               TEXT    NOT NULL,
+    id                         INTEGER NOT NULL,
+    message_text               TEXT    NOT NULL,
+    message_class              TEXT,
+    trigger_tag                TEXT,
+    trigger_bit                INTEGER CHECK (trigger_bit IS NULL OR (trigger_bit >= 0 AND trigger_bit <= 15)),
+    trigger_address            TEXT,
+    hmi_acknowledgment_tag     TEXT,
+    hmi_acknowledgment_bit     INTEGER CHECK (hmi_acknowledgment_bit IS NULL OR (hmi_acknowledgment_bit >= 0 AND hmi_acknowledgment_bit <= 15)),
     hmi_acknowledgment_address TEXT,
-    report                    INTEGER NOT NULL DEFAULT 0 CHECK (report IN (0, 1)),
-    create_user           TEXT    NOT NULL,
-    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modify_user           TEXT    NOT NULL,
-    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
-                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
-    version               INTEGER NOT NULL DEFAULT 1
+    report                     INTEGER NOT NULL DEFAULT 0 CHECK (report IN (0, 1)),
+    create_user                TEXT    NOT NULL,
+    create_timestamp           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user                TEXT    NOT NULL,
+    modify_timestamp           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status              TEXT    NOT NULL DEFAULT 'inserted'
+                                      CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version                    INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (project_name, message_name),
+    FOREIGN KEY (project_name)
+        REFERENCES mdm_project(project_name)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
 );
 
-CREATE INDEX IF NOT EXISTS idx_message_text_name         ON mdm_message_text(name);
-CREATE INDEX IF NOT EXISTS idx_message_text_alarm_class  ON mdm_message_text(alarm_class);
-CREATE INDEX IF NOT EXISTS idx_message_text_trigger_tag  ON mdm_message_text(trigger_tag);
-CREATE INDEX IF NOT EXISTS idx_message_text_status       ON mdm_message_text(modify_status);
+CREATE INDEX IF NOT EXISTS idx_message_text_project       ON mdm_message_text(project_name);
+CREATE INDEX IF NOT EXISTS idx_message_text_message_class ON mdm_message_text(message_class);
+CREATE INDEX IF NOT EXISTS idx_message_text_trigger_tag   ON mdm_message_text(trigger_tag);
+CREATE INDEX IF NOT EXISTS idx_message_text_status        ON mdm_message_text(modify_status);
 
 -- better-auth Tabellen (user, session, account, verification)
 CREATE TABLE IF NOT EXISTS "user" (
