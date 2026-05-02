@@ -489,7 +489,196 @@ Migrations-Logik in `src/lib/db/db.ts`.
 
 ---
 
-## 11. Implementierungsstand (Stand 2026-05-02)
+## 11. Workflow: SPS-Polling → Import → E-Mail-Versand
+
+### 11.1 Motivation: Warum drei getrennte Prozess-Stufen?
+
+| Grund | Erklärung |
+|---|---|
+| **Entkopplung** | Polling-Takt (10 s) ≠ Import-Geschwindigkeit ≠ E-Mail-Frequenz |
+| **Ausfallsicherheit** | SPS offline → kein Import-Fehler, nur `status='init'` im Header |
+| **Rate Limiting** | Delta-Time verhindert E-Mail-Flut (gleiche Meldung max. 1× / 60 min) |
+| **Rückverfolgbarkeit** | `co_id` verknüpft Polling-Datensatz ↔ Messwert ↔ E-Mail-Versand |
+| **Idempotenz** | `status`-Flag auf `ts_monitor_value` verhindert doppeltes Senden |
+
+---
+
+### 11.2 Prozess-Stufe A — SPS-Polling (alle 10 Sekunden)
+
+Ein externer Polling-Prozess (z.B. Cron-Job oder Background-Worker) ruft die SPS per REST ab.
+
+**Ablauf:**
+1. Neuen Workflow-Header anlegen: `INSERT INTO wf_monitor_poll (co_id, project_name, monitor_name, status='init')`
+2. REST-API-Call an die SPS
+3. **Erfolg:** SPS liefert JSON → UPDATE `wf_monitor_poll SET status='response', response_at=now`  
+   Die JSON-Datei wird in `data/` abgelegt und dann via `POST /api/ts-import` verarbeitet
+4. **Fehler / SPS offline:** Status bleibt `'init'`, neuer Versuch in 10 s mit neuer `co_id`
+
+**Tabelle `wf_monitor_poll`** (neu):
+```sql
+CREATE TABLE IF NOT EXISTS wf_monitor_poll (
+    co_id          TEXT NOT NULL PRIMARY KEY,   -- UUID / Correlation ID
+    project_name   TEXT NOT NULL,
+    monitor_name   TEXT NOT NULL,
+    polled_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status         TEXT NOT NULL DEFAULT 'init'
+                         CHECK (status IN ('init', 'response', 'import', 'error')),
+    response_at    TEXT,   -- gesetzt wenn SPS geantwortet hat
+    import_at      TEXT,   -- gesetzt wenn ts_monitor_value importiert wurden
+    error_message  TEXT
+);
+```
+
+**Status-Übergänge `wf_monitor_poll`:**
+```
+init → response → import
+init → (bleibt init bei SPS-Ausfall, nächster Versuch = neuer Datensatz)
+init → error (bei unerwartetem Fehler)
+```
+
+---
+
+### 11.3 Prozess-Stufe B — Import in Ella-Edge (ts-import)
+
+Die bestehende Route `POST /api/ts-import` liest die SPS-JSON-Datei ein und schreibt
+Messwerte in die Datenbank. Sie wird um `co_id` und `status` erweitert.
+
+**Ablauf:**
+1. `co_id` aus dem Request-Parameter übernehmen (vom Polling-Prozess mitgegeben)
+2. Pro Variable: INSERT in `ts_monitor_value` mit `co_id`, `status='import'`
+3. Bit-Mapping wie bisher: INSERT in `ts_monitor_value_address`
+4. UPDATE `wf_monitor_poll SET status='import', import_at=now WHERE co_id=?`
+
+**Neue Felder in `ts_monitor_value`** (Migration via `addColumnIfMissing`):
+```sql
+ALTER TABLE ts_monitor_value ADD COLUMN co_id           TEXT;
+ALTER TABLE ts_monitor_value ADD COLUMN status          TEXT DEFAULT 'import'
+                                        CHECK (status IN ('import', 'send'));
+ALTER TABLE ts_monitor_value ADD COLUMN status_timestamp TEXT;
+```
+
+**Index für effizientes E-Mail-Processing:**
+```sql
+CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_status
+    ON ts_monitor_value(status, value_id);
+```
+
+---
+
+### 11.4 Prozess-Stufe C — E-Mail-Versand
+
+Ein Background-Worker (z.B. `POST /api/email-dispatch` oder Cron-Job) verarbeitet alle
+`ts_monitor_value`-Datensätze mit `status='import'`.
+
+**Ablauf pro Datensatz:**
+
+```
+1. Lade alle ts_monitor_value WHERE status = 'import'
+
+2. Für jeden Datensatz:
+   a. Ermittle project_name via value_id → mdm_monitor_variable
+   
+   b. Delta-Time-Check:
+      SELECT MAX(status_timestamp)
+      FROM ts_monitor_value
+      WHERE value_id = ? AND status = 'send'
+      → falls < 60 Minuten her: überspringen (kein erneutes Senden)
+   
+   c. Ermittle Meldungstexte via Bit-Adressen:
+      Für jede trigger_address in ts_monitor_value_address:
+        SELECT message_name, message_class, message_text
+        FROM mdm_message_text
+        WHERE trigger_address LIKE ? AND trigger_tag LIKE 'HMI%'
+        AND project_name = ? AND modify_status != 'deleted'
+   
+   d. Ermittle Empfänger:
+      SELECT email_address FROM mdm_project_email
+      WHERE project_name = ? AND is_active = 1 AND modify_status != 'deleted'
+   
+   e. E-Mail aufbauen:
+      Betreff:  [Ella Edge] {project_name} — {monitor_name} — {message_class}
+      Inhalt:   Liste aller gefundenen Meldungstexte mit trigger_address
+   
+   f. E-Mail senden via Gmail (nodemailer / SMTP)
+   
+   g. Bei Erfolg:
+      UPDATE ts_monitor_value
+      SET status = 'send', status_timestamp = now
+      WHERE id = ?
+```
+
+**Delta-Time-Logik:** Verhindert, dass bei dauerhaft gesetztem SPS-Bit alle 10 Sekunden
+eine E-Mail gesendet wird. Konfigurierbar, Standardwert: 60 Minuten.
+
+**E-Mail-Aufbau (Beispiel):**
+
+```
+An:      alarm@rasing.at, wartung@rasing.at
+Betreff: [Ella Edge] Rasing – Visu Bereichszeiger – Errors
+
+Zeitstempel: 2026-05-02 14:32:00
+Projekt:     Rasing
+Monitor:     Visu Bereichszeiger
+Variable:    GM_TP177_16_01
+
+Aktive Meldungen:
+─────────────────────────────────────────────────
+  Adresse:      %DB31.DBX104.7
+  Meldungsname: Antrieb_Stoerung_07
+  Klasse:       Errors
+  Text:         Antrieb Störung – Überstrom erkannt
+─────────────────────────────────────────────────
+```
+
+---
+
+### 11.5 Datenfluss-Übersicht
+
+```
+SPS (REST)
+    │  alle 10 Sekunden
+    ▼
+wf_monitor_poll  [co_id, status: init → response]
+    │
+    │  POST /api/ts-import  (co_id wird mitgegeben)
+    ▼
+ts_monitor_value  [status: import]
+ts_monitor_value_address
+    │
+    │  Background-Worker / POST /api/email-dispatch
+    ▼
+Delta-Time-Check  (value_id + status_timestamp)
+    │ nein (< 60 min)      │ ja (>= 60 min oder noch nie gesendet)
+    ▼                       ▼
+  überspringen         mdm_message_text
+                       (via trigger_address)
+                            │
+                       mdm_project_email
+                       (Empfänger)
+                            │
+                       Gmail SMTP
+                            │
+                       ts_monitor_value
+                       [status: send, status_timestamp: now]
+                       wf_monitor_poll
+                       [status: import]
+```
+
+---
+
+### 11.6 Neue DB-Objekte (Zusammenfassung)
+
+| Objekt | Art | Beschreibung |
+|---|---|---|
+| `wf_monitor_poll` | Neue Tabelle | Workflow-Header pro Polling-Zyklus |
+| `ts_monitor_value.co_id` | Neue Spalte | FK auf `wf_monitor_poll` |
+| `ts_monitor_value.status` | Neue Spalte | `'import'` \| `'send'` |
+| `ts_monitor_value.status_timestamp` | Neue Spalte | Zeitpunkt des letzten Status-Wechsels |
+| `idx_ts_monitor_value_status` | Neuer Index | Schnelles Filtern nach status + value_id |
+
+---
+
+## 12. Implementierungsstand (Stand 2026-05-02)
 
 | Bereich | Status | Anmerkung |
 |---|---|---|
@@ -508,14 +697,17 @@ Migrations-Logik in `src/lib/db/db.ts`.
 | Reports | 🔲 offen | Nur Platzhalter-Seite |
 | Lookup-Verwaltung UI | 🔲 offen | Nur Seed-Daten, keine UI |
 | Messwert-Anzeige | 🔲 offen | Zeitreihen-Darstellung in Monitor-Detailseite |
+| SPS-Polling + Workflow | 🔲 offen | wf_monitor_poll, co_id, Background-Worker |
+| E-Mail-Versand (Dispatch) | 🔲 offen | Delta-Time, Meldungstext-Mapping, Gmail SMTP |
 | Cloud-Sync REST | 🔲 offen | Noch nicht implementiert |
 
 ---
 
-## 12. Offene Punkte / Nächste Version
+## 13. Offene Punkte / Nächste Version
 
-1. **Reports-Seite** — aktive Projekte, Devices mit Alarm, Messwert-Auswertungen, Bit-Meldungs-Statistiken
-2. **Lookup-Verwaltung** — UI zum Pflegen von `mdm_lookup` (DeviceType, ProjectType, AlarmClass, …)
-3. **Messwert-Anzeige** — Zeitreihen-Darstellung in der Monitor-Detailseite, Bit-Meldungs-Tabelle mit Meldungstext-Mapping
-4. **Event Rules / Events / Actions** — Monitoring-Unterbereich (Dashboard-Sektion geplant)
-5. **Cloud-Sync** — REST-API-Anbindung an Ella-Energy (AWS), Nutzung von `mdm_sync_log`
+1. **SPS-Polling + Workflow** — Background-Worker, `wf_monitor_poll`, `co_id` in ts-import
+2. **E-Mail-Dispatch** — `POST /api/email-dispatch`, Delta-Time, Gmail SMTP via nodemailer
+3. **Reports-Seite** — aktive Projekte, Devices mit Alarm, Messwert-Auswertungen, Bit-Meldungs-Statistiken
+4. **Lookup-Verwaltung** — UI zum Pflegen von `mdm_lookup`
+5. **Messwert-Anzeige** — Zeitreihen-Darstellung in der Monitor-Detailseite
+6. **Cloud-Sync** — REST-API-Anbindung an Ella-Energy (AWS), Nutzung von `mdm_sync_log`
