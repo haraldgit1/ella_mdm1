@@ -30,10 +30,11 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "Monitoring",
     items: [
-      { label: "Monitors",      icon: "📟", href: "/monitors" },
-      { label: "Event Rules",   icon: "⚙️",  planned: true    },
-      { label: "Events",        icon: "⚡",  planned: true    },
-      { label: "Actions",       icon: "🎯",  planned: true    },
+      { label: "Monitors",       icon: "📟", href: "/monitors"        },
+      { label: "E-Mail Dispatch", icon: "✉️",  href: "/email-dispatch" },
+      { label: "Event Rules",    icon: "⚙️",  planned: true           },
+      { label: "Events",         icon: "⚡",  planned: true           },
+      { label: "Actions",        icon: "🎯",  planned: true           },
     ],
   },
   {

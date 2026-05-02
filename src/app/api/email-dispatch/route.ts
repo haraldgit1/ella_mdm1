@@ -163,15 +163,41 @@ export async function POST(request: NextRequest) {
   });
 }
 
-/** Gibt an, wie viele Datensätze noch auf Versand warten */
+/** Dispatch-Status: Zähler + ausstehende und zuletzt versendete Datensätze */
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const db = getDb();
-  const result = db.prepare(
+
+  const { pending } = db.prepare(
     "SELECT COUNT(*) AS pending FROM ts_monitor_value WHERE status = 'import'"
   ).get() as { pending: number };
 
-  return Response.json({ pending: result.pending });
+  const { sent_24h } = db.prepare(`
+    SELECT COUNT(*) AS sent_24h FROM ts_monitor_value
+    WHERE status = 'send' AND status_timestamp >= datetime('now', '-24 hours')
+  `).get() as { sent_24h: number };
+
+  const pending_records = db.prepare(`
+    SELECT tmv.id, tmv.ts, tmv.bit_value, tmv.co_id,
+           mmv.project_name, mmv.monitor_name, mmv.name AS variable_name
+    FROM ts_monitor_value tmv
+    LEFT JOIN mdm_monitor_variable mmv ON mmv.value_id = tmv.value_id
+    WHERE tmv.status = 'import'
+    ORDER BY tmv.ts ASC
+    LIMIT 50
+  `).all();
+
+  const recent_sent = db.prepare(`
+    SELECT tmv.id, tmv.ts, tmv.status_timestamp, tmv.bit_value,
+           mmv.project_name, mmv.monitor_name, mmv.name AS variable_name
+    FROM ts_monitor_value tmv
+    LEFT JOIN mdm_monitor_variable mmv ON mmv.value_id = tmv.value_id
+    WHERE tmv.status = 'send' AND tmv.status_timestamp IS NOT NULL
+    ORDER BY tmv.status_timestamp DESC
+    LIMIT 20
+  `).all();
+
+  return Response.json({ pending, sent_24h, pending_records, recent_sent });
 }
