@@ -228,17 +228,38 @@ CREATE TABLE IF NOT EXISTS seq_monitor_variable (
     value_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
 );
 
--- Time-series table: alle 5 Sekunden abgefragte SPS-Werte
+-- Workflow-Header: ein Datensatz pro SPS-Polling-Zyklus
+CREATE TABLE IF NOT EXISTS wf_monitor_poll (
+    co_id          TEXT    NOT NULL PRIMARY KEY,
+    project_name   TEXT    NOT NULL,
+    monitor_name   TEXT    NOT NULL,
+    polled_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status         TEXT    NOT NULL DEFAULT 'init'
+                           CHECK (status IN ('init', 'response', 'import', 'error')),
+    response_at    TEXT,
+    import_at      TEXT,
+    error_message  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_wf_monitor_poll_status  ON wf_monitor_poll(status, polled_at);
+CREATE INDEX IF NOT EXISTS idx_wf_monitor_poll_project ON wf_monitor_poll(project_name, monitor_name);
+
+-- Time-series table: alle 10 Sekunden abgefragte SPS-Werte
 CREATE TABLE IF NOT EXISTS ts_monitor_value (
-    id         INTEGER NOT NULL PRIMARY KEY,
-    ts         TEXT    NOT NULL,
-    value_id   INTEGER NOT NULL REFERENCES seq_monitor_variable(value_id),
-    value      REAL,
-    bit_value  TEXT
+    id               INTEGER NOT NULL PRIMARY KEY,
+    ts               TEXT    NOT NULL,
+    value_id         INTEGER NOT NULL REFERENCES seq_monitor_variable(value_id),
+    value            REAL,
+    bit_value        TEXT,
+    co_id            TEXT    REFERENCES wf_monitor_poll(co_id),
+    status           TEXT    NOT NULL DEFAULT 'import'
+                             CHECK (status IN ('import', 'send')),
+    status_timestamp TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_ts       ON ts_monitor_value(ts);
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_value_id ON ts_monitor_value(value_id, ts);
+CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_status   ON ts_monitor_value(status, value_id);
 
 -- Detail-Tabelle: gesetzte Bits pro ts_monitor_value-Eintrag
 CREATE TABLE IF NOT EXISTS ts_monitor_value_address (

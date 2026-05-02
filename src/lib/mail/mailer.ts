@@ -12,6 +12,89 @@ const transporter = nodemailer.createTransport({
 
 const FROM = process.env.MAIL_FROM!;
 
+export interface MonitorAlertMessage {
+  message_name: string;
+  message_class: string | null;
+  message_text: string;
+  trigger_address: string;
+}
+
+export interface MonitorAlertMailOptions {
+  to: string[];
+  projectName: string;
+  monitorName: string;
+  variableName: string;
+  ts: string;
+  messages: MonitorAlertMessage[];
+}
+
+export async function sendMonitorAlertMail(opts: MonitorAlertMailOptions) {
+  const tsFormatted = new Date(opts.ts).toLocaleString("de-AT");
+
+  const messageRows = opts.messages
+    .map(
+      (m) =>
+        `<tr>
+          <td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;font-family:monospace;font-size:12px;color:#555">${m.trigger_address}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;font-weight:600">${m.message_name}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;color:#c00">${m.message_class ?? "—"}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #f0f0f0">${m.message_text}</td>
+        </tr>`
+    )
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<body style="font-family:Arial,sans-serif;background:#f8f8f8;padding:24px">
+  <div style="max-width:680px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+    <div style="background:#7f1d1d;padding:20px 24px">
+      <h2 style="color:#fff;margin:0;font-size:18px">&#9888; Ella Edge &#8212; Monitor-Meldung</h2>
+      <p style="color:#fca5a5;margin:4px 0 0;font-size:13px">
+        Projekt: <strong>${opts.projectName}</strong> &nbsp;&#183;&nbsp; Monitor: <strong>${opts.monitorName}</strong>
+      </p>
+    </div>
+    <div style="padding:24px">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:13px">
+        <tr>
+          <td style="color:#888;padding:3px 0;width:120px">Zeitstempel</td>
+          <td style="font-weight:600">${tsFormatted}</td>
+        </tr>
+        <tr>
+          <td style="color:#888;padding:3px 0">Variable</td>
+          <td style="font-family:monospace">${opts.variableName}</td>
+        </tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px">
+        <thead>
+          <tr style="background:#f5f5f5">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#888">Adresse</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#888">Meldungsname</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#888">Klasse</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#888">Meldungstext</th>
+          </tr>
+        </thead>
+        <tbody>${messageRows}</tbody>
+      </table>
+      <p style="color:#999;font-size:12px;margin-bottom:0;margin-top:20px">
+        Gesendet: ${new Date().toLocaleString("de-AT")} &#183; Ella MDM Edge System
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const firstClass = opts.messages.find((m) => m.message_class)?.message_class;
+  const subject = `[Ella Edge] ${opts.projectName} — ${opts.monitorName}${firstClass ? ` — ${firstClass}` : ""}`;
+
+  return transporter.sendMail({
+    from: `"Ella MDM" <${FROM}>`,
+    to: opts.to.join(", "),
+    subject,
+    html,
+  });
+}
+
 export interface AlarmMailOptions {
   to: string[];
   projectName: string;

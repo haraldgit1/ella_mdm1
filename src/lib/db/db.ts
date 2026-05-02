@@ -105,8 +105,14 @@ function runMigrations(db: Database.Database) {
     }
   }
 
-  // ── ts_monitor_value: bit_value ───────────────────────────────────────────
-  addColumnIfMissing(db, "ts_monitor_value", "bit_value", "TEXT");
+  // ── ts_monitor_value: bit_value + workflow fields ────────────────────────
+  addColumnIfMissing(db, "ts_monitor_value", "bit_value",        "TEXT");
+  addColumnIfMissing(db, "ts_monitor_value", "co_id",            "TEXT");
+  // DEFAULT 'send' für bestehende Zeilen → verhindert E-Mail-Flut beim ersten Lauf
+  addColumnIfMissing(db, "ts_monitor_value", "status",           "TEXT DEFAULT 'send'");
+  addColumnIfMissing(db, "ts_monitor_value", "status_timestamp", "TEXT");
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_status ON ts_monitor_value(status, value_id)`);
 
   // Add value_id column to mdm_monitor_variable (SQLite: ADD COLUMN is safe to run multiple times via the check)
   const cols = db.prepare("PRAGMA table_info(mdm_monitor_variable)").all() as { name: string }[];

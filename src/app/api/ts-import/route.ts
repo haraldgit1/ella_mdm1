@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth/auth";
 import { getDb } from "@/lib/db/db";
 
@@ -11,12 +12,15 @@ export async function POST(request: NextRequest) {
   const projectName = (formData.get("project_name") as string | null)?.trim();
   const monitorName = (formData.get("monitor_name") as string | null)?.trim();
   const tsRaw = (formData.get("ts") as string | null)?.trim();
+  const coIdParam = (formData.get("co_id") as string | null)?.trim();
 
   if (!file)        return Response.json({ error: "Keine Datei" }, { status: 400 });
   if (!projectName) return Response.json({ error: "project_name fehlt" }, { status: 400 });
   if (!monitorName) return Response.json({ error: "monitor_name fehlt" }, { status: 400 });
 
   const ts = tsRaw ? new Date(tsRaw).toISOString() : new Date().toISOString();
+  const coId = coIdParam || randomUUID();
+  const now = new Date().toISOString();
 
   // Parse SPS JSON format — outer key has no colon: "MonitorName" { ... }
   const content = await file.text();
@@ -35,6 +39,13 @@ export async function POST(request: NextRequest) {
 
   const db = getDb();
 
+  // Workflow-Header: upsert wf_monitor_poll
+  db.prepare(`
+    INSERT INTO wf_monitor_poll (co_id, project_name, monitor_name, status, import_at)
+    VALUES (?, ?, ?, 'import', ?)
+    ON CONFLICT(co_id) DO UPDATE SET status = 'import', import_at = excluded.import_at
+  `).run(coId, projectName, monitorName, now);
+
   // Build varName → {value_id, datablock, offset} lookup for this monitor
   const varRows = db.prepare(
     `SELECT name, value_id, datablock, offset FROM mdm_monitor_variable
@@ -49,7 +60,9 @@ export async function POST(request: NextRequest) {
 
   const varInfoMap = new Map(varRows.map((r) => [r.name, r]));
 
-  const insertTs   = db.prepare("INSERT INTO ts_monitor_value (ts, value_id, value, bit_value) VALUES (?, ?, ?, ?)");
+  const insertTs   = db.prepare(
+    "INSERT INTO ts_monitor_value (ts, value_id, value, bit_value, co_id, status) VALUES (?, ?, ?, ?, ?, 'import')"
+  );
   const insertAddr = db.prepare(
     "INSERT INTO ts_monitor_value_address (id, pos, trigger_bit, trigger_address) VALUES (?, ?, ?, ?)"
   );
@@ -66,7 +79,7 @@ export async function POST(request: NextRequest) {
       const numOrNull = isNaN(num) ? null : num;
       const bv = toBitValue(numOrNull);
 
-      const { lastInsertRowid } = insertTs.run(ts, info.value_id, numOrNull, bv);
+      const { lastInsertRowid } = insertTs.run(ts, info.value_id, numOrNull, bv, coId);
 
       if (bv !== null) {
         const tsId = Number(lastInsertRowid);
@@ -79,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
   })();
 
-  return Response.json({ imported, skipped, ts });
+  return Response.json({ imported, skipped, ts, co_id: coId });
 }
 
 /** value=0 oder null → null; sonst 16-stellige Binärdarstellung (z.B. 10 → "0000000000001010") */
