@@ -10,7 +10,8 @@ Sie enthält alle relevanten Informationen über Architektur, Konventionen und a
 **Ella Edge Integration Hub** ist ein leichtgewichtiges Master Data Management System für lokale Edge-Geräte,
 angebunden an die Cloud-Plattform Ella-Energy (AWS).
 
-**Zweck:** Verwaltung von Projekten, Devices, Alarmstufen, E-Mail-Adressen, Lookup-Werten und Monitoring-Definitionen.
+**Zweck:** Verwaltung von Projekten, Devices, Monitors, Meldungstexten, Alarmstufen, E-Mail-Adressen,
+Lookup-Werten sowie Zeitreihendaten aus SPS-Monitoring.
 **Betrieb:** Lokal auf Edge-Hardware, Sync mit Cloud via REST-API und CSV-Import/Export.
 
 ---
@@ -24,7 +25,7 @@ angebunden an die Cloud-Plattform Ella-Energy (AWS).
 | Sprache | TypeScript (strict) |
 | Styling | TailwindCSS 4 |
 | Datenbank | SQLite via `better-sqlite3` |
-| Auth | `better-auth` (Email/Password) |
+| Auth | `better-auth` (Email/Password + Admin Plugin) |
 | Git-Remote | https://github.com/haraldgit1/ella_mdm1.git |
 
 ---
@@ -68,7 +69,9 @@ ella_mdm/
 │   │   │   └── [projectName]/[deviceName]/
 │   │   ├── monitors/            # Monitors (Suche + Liste + Detail)
 │   │   │   └── [projectName]/   # Monitor-Detailseite (?monitor=name)
-│   │   ├── alarms/              # Alarme (Suche + Liste + Dialog)
+│   │   ├── alarms/              # Alarmstufen (Suche + Liste + Dialog)
+│   │   ├── message-texts/       # Meldungstexte (Suche + Liste + Dialog)
+│   │   ├── users/               # Benutzerverwaltung (nur Admins)
 │   │   ├── reports/             # Reports (Platzhalter)
 │   │   ├── import/              # CSV-Import (mit Encoding-Auswahl)
 │   │   ├── export/              # CSV-Export
@@ -84,6 +87,7 @@ ella_mdm/
 │   │       ├── monitor-variables/ # GET, POST
 │   │       │   └── [projectName]/[monitorName]/[name]/ # PUT, DELETE
 │   │       ├── monitor-interface/ # POST (SPS-Interface-Datei für Monitor)
+│   │       ├── ts-import/       # POST (SPS JSON → ts_monitor_value)
 │   │       ├── alarms/          # GET (alle Projekte), POST
 │   │       │   └── [projectName]/[alarmLevelCode]/ # PUT, DELETE
 │   │       ├── emails/          # GET, POST
@@ -92,6 +96,8 @@ ella_mdm/
 │   │       │   └── [functionCode]/[code]/ # PUT, DELETE
 │   │       ├── variables/       # GET, POST
 │   │       │   └── [projectName]/[deviceName]/[name]/ # PUT, DELETE
+│   │       ├── message-texts/   # GET, POST
+│   │       │   └── [projectName]/[messageName]/ # PUT, DELETE
 │   │       ├── sps-interface/   # POST (SPS-Interface-Datei für Device)
 │   │       ├── import/          # POST (CSV, mit charset-Parameter)
 │   │       └── export/          # GET (CSV)
@@ -105,7 +111,7 @@ ella_mdm/
 │   ├── lib/
 │   │   ├── auth/auth.ts         # better-auth Server-Instanz
 │   │   ├── auth/auth-client.ts  # better-auth Client-Instanz
-│   │   ├── db/db.ts             # SQLite-Singleton (getDb())
+│   │   ├── db/db.ts             # SQLite-Singleton (getDb(), nextMonitorVariableId())
 │   │   ├── db/schema.sql        # DDL aller Tabellen
 │   │   ├── db/seed.ts           # Lookup-Grunddaten
 │   │   ├── db/seed-testdata.ts  # Vollständige Testdaten inkl. Benutzer
@@ -119,10 +125,11 @@ ella_mdm/
 │       ├── device.ts
 │       ├── alarm.ts
 │       ├── email.ts
-│       └── monitor.ts           # Monitor + MonitorVariable + Input-Typen
+│       ├── monitor.ts           # Monitor + MonitorVariable + Input-Typen
+│       └── message_text.ts      # MessageText + MessageTextInput
 ├── data/                        # SPS-Interface-Dateien (nicht in Git)
 ├── ella_mdm.db                  # SQLite-Datenbankdatei (nicht in Git)
-├── ella_edge_integration_hub_spec.md  # Fachliche Spezifikation
+├── SPEC.MD                      # Technische Spezifikation
 └── CLAUDE.md                    # Diese Datei
 ```
 
@@ -135,6 +142,11 @@ ella_mdm/
 Das Schema wird beim ersten `getDb()`-Aufruf automatisch aus `schema.sql` eingespielt.
 **Keine manuellen Migrations-Scripts nötig.**
 
+Migrationslogik in `db.ts`:
+- `preInitMigrations()` — läuft VOR `initSchema()`, löscht Tabellen mit inkompatiblem Schema (Table-Recreate-Pattern)
+- `runMigrations()` — `addColumnIfMissing()` für nicht-destruktive Spalten-Erweiterungen
+- `nextMonitorVariableId()` — erzeugt nächste `value_id` aus `seq_monitor_variable`
+
 ### Tabellen
 
 | Tabelle | Primärschlüssel | Beschreibung |
@@ -145,11 +157,14 @@ Das Schema wird beim ersten `getDb()`-Aufruf automatisch aus `schema.sql` einges
 | `mdm_project_alarm` | `project_name + alarm_level_code` | Alarmstufen pro Projekt |
 | `mdm_project_email` | `project_name + email_address` | Ziel-E-Mails pro Projekt |
 | `mdm_monitor` | `project_name + monitor_name` | Monitor-Definitionen |
-| `mdm_monitor_variable` | `project_name + monitor_name + name` | Variablen pro Monitor |
-| `mdm_message_text` | `id` (AUTOINCREMENT) | Bitmeldungstexte mit SPS-Bit-Mapping |
+| `mdm_monitor_variable` | `project_name + monitor_name + name` | Variablen pro Monitor (inkl. `value_id`) |
+| `mdm_message_text` | `project_name + message_name` | Bitmeldungstexte mit SPS-Bit-Mapping |
 | `mdm_lookup` | `function_code + code` | Lookup-Werte für Dropdowns |
 | `mdm_import_log` | `import_id` | Protokoll CSV-Importe |
 | `mdm_sync_log` | `sync_id` | Protokoll Cloud-Sync |
+| `seq_monitor_variable` | `value_id` (AUTOINCREMENT) | Surrogate-Key-Sequenz für Monitor-Variablen |
+| `ts_monitor_value` | `id` (AUTOINCREMENT) | Messwerte (SPS-Polling) |
+| `ts_monitor_value_address` | `id + pos` | Bit-Adressen pro Messwert |
 | `user`, `session`, `account`, `verification` | — | better-auth (auto-verwaltet) |
 
 ### Lookup-Codes
@@ -162,7 +177,7 @@ Das Schema wird beim ersten `getDb()`-Aufruf automatisch aus `schema.sql` einges
 | 400 | MonitorType | 1=Meldung, 2=Störung |
 | 500 | AlarmClass | Acknowledgement, Betriebsmeldungen, Errors, No Acknowledgement, Warnings |
 
-### Audit-Felder (in allen MDM-Tabellen)
+### Audit-Felder (in allen MDM-Stammdatentabellen)
 
 Jede Tabelle enthält: `create_user`, `create_timestamp`, `modify_user`, `modify_timestamp`, `modify_status`, `version`
 
@@ -185,6 +200,20 @@ Löschen = `modify_status = 'deleted'`. Alle Abfragen filtern `modify_status != 
 `mdm_monitor.monitor_name` kann umbenannt werden. Die FK-Constraint auf `mdm_monitor_variable` ist mit
 `ON UPDATE CASCADE` definiert — Umbenennung des Parent-Rows aktualisiert alle Child-Rows automatisch.
 Wird in einer `better-sqlite3`-Transaktion ausgeführt (inkl. Duplikat-Prüfung vor der Umbenennung).
+
+### Surrogate Key für Monitor-Variablen
+
+`mdm_monitor_variable.value_id` ist ein stabiler surrogate key aus `seq_monitor_variable` (AUTOINCREMENT).
+Er bleibt auch bei Umbenennung des Monitors konstant und dient als FK in `ts_monitor_value`.
+Neue Rows bekommen ihre `value_id` via `nextMonitorVariableId()` in `db.ts`.
+**Wichtig:** Zeilen in `seq_monitor_variable` dürfen niemals gelöscht werden.
+
+### Meldungstext-ID
+
+`mdm_message_text.id` ist eine **projektspezifische Laufnummer**, kein globales AUTOINCREMENT:
+```sql
+SELECT COALESCE(MAX(id), 0) + 1 FROM mdm_message_text WHERE project_name = ? AND modify_status != 'deleted'
+```
 
 ---
 
@@ -251,8 +280,36 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 
 - Separator wird automatisch erkannt (`;` oder `,`, basierend auf Häufigkeit in der Header-Zeile)
 - Encoding wählbar: UTF-8 (Standard), Windows-1252 (Siemens SPS), ISO-8859-1
-- Import-Typen: `projects`, `devices`, `alarms`, `emails`, `lookups`, `variables`, `monitor_variables`
+- Import-Typen: `projects`, `devices`, `alarms`, `emails`, `lookups`, `variables`, `monitor_variables`, `message_texts`
 - Protokollierung in `mdm_import_log`
+
+### Monitoring & Zeitreihen
+
+**Datenfluss:** SPS-Polling → JSON-Datei → `POST /api/ts-import` → `ts_monitor_value` + `ts_monitor_value_address`
+
+**ts-import** (`src/app/api/ts-import/route.ts`):
+- Parst SPS-JSON (Siemens-Format ohne Doppelpunkt wird vor dem Parsen korrigiert)
+- Sucht `value_id`, `datablock`, `offset` per Variablenname in `mdm_monitor_variable`
+- Berechnet `bit_value`: 16-stellige Binärdarstellung (value ≤ 0 oder null → null, sonst `Math.round(value).toString(2).padStart(16, "0")`)
+- Alle Inserts laufen in einer Transaktion
+
+**bit_value Beispiele:**
+- `value = 0` oder `null` → `null`
+- `value = 7` → `"0000000000000111"`
+- `value = 160` → `"0000000010100000"`
+- `value = -5` → `null` (negative Werte → null)
+- `value = 7.8` → `Math.round` → 8 → `"0000000000001000"`
+
+**ts_monitor_value_address — Byte-Split:**
+- `trigger_bit` = 0-basierter Index von links im 16-Char-String (Zeichen 0 = linkestes = Bit 0)
+- Sortierung aufsteigend → `pos=1` = niedrigster trigger_bit
+- **Byte1** (trigger_bit 0–7): `offsetBase`-Zahl +1; Bit-Anteil der Adresse = trigger_bit
+- **Byte2** (trigger_bit 8–15): `offsetBase`-Zahl unverändert; Bit-Anteil = trigger_bit − 8
+- `offsetBase` = offset ohne letztes `.X` (z.B. `"DBX102.0"` → `"DBX102"`, `"104.0"` → `"104"`)
+
+Beispiele mit `datablock="DB31"`, `offset="DBX102.0"`:
+- trigger_bit=3 → `%DB31.DBX103.3` (Byte1: 102+1=103, bit=3)
+- trigger_bit=8 → `%DB31.DBX102.0` (Byte2: 102 bleibt, bit=8-8=0)
 
 ### Formular-Tabs (Projekte)
 
@@ -284,9 +341,18 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 | Technische Daten | JSON-Freifeld |
 | Variablen | Liste + Hinzufügen / Ändern (inline) / Löschen |
 
+### Dialog: Meldungstexte
+
+| Abschnitt | Felder |
+|---|---|
+| Identifikation (nur Neu) | project_name (Select), message_name (Text) |
+| Meldung | message_text (Pflicht), message_class (Lookup 500), report (Checkbox) |
+| Trigger SPS | trigger_tag, trigger_bit (0–15), trigger_address |
+| HMI-Quittierung | hmi_acknowledgment_tag, hmi_acknowledgment_bit (0–15), hmi_acknowledgment_address |
+
 ---
 
-## Aktueller Implementierungsstand (Stand 2026-04-22)
+## Aktueller Implementierungsstand (Stand 2026-05-02)
 
 | Bereich | Status | Anmerkung |
 |---|---|---|
@@ -296,22 +362,24 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 | Devices | ✅ fertig | Suche, Liste, Detail (6 Tabs inkl. Variablen), Sperren/Freigabe, SPS-Interface |
 | Monitors | ✅ fertig | Suche, Liste, Detail (4 Tabs inkl. Variablen inline-edit), Typ-Badge, SPS-Interface |
 | Alarme | ✅ fertig | Suche, Liste, Detail-Dialog (Neu/Bearbeiten/Löschen) |
-| Import | ✅ fertig | CSV-Upload, Encoding-Auswahl, auto-detect Separator |
+| Meldungstexte | ✅ fertig | Suche, Liste, Dialog (Neu/Bearbeiten/Löschen), CSV-Import |
+| Import | ✅ fertig | 8 Typen, Encoding-Auswahl, auto-detect Separator |
 | Export | ✅ fertig | CSV-Download |
+| Benutzerverwaltung | ✅ fertig | Liste, Neu, Bearbeiten, Sperren/Entsperren, Passwort setzen (nur Admins) |
+| Messwerte-Import (ts-import) | ✅ fertig | SPS JSON → ts_monitor_value + ts_monitor_value_address |
 | Reports | 🔲 offen | Nur Platzhalter-Seite |
-| Lookup-Verwaltung | 🔲 offen | Nur Seed-Daten, keine UI |
+| Lookup-Verwaltung UI | 🔲 offen | Nur Seed-Daten, keine UI |
 | Cloud-Sync (REST) | 🔲 offen | Noch nicht implementiert |
-| Benutzer & Rollen | ✅ fertig | Liste, Neu, Bearbeiten, Sperren/Entsperren, Passwort setzen (nur Admins) |
 
 ---
 
 ## Offene Themen / Nächste Schritte
 
-1. **Reports-Seite** ausbauen (aktive Projekte, Devices mit Alarm, Devices ohne Limits, …)
+1. **Reports-Seite** ausbauen (aktive Projekte, Devices mit Alarm, Messwert-Auswertungen)
 2. **Lookup-Verwaltung** — UI für `mdm_lookup` (Dropdowns befüllen)
-3. **Event Rules / Events / Actions** — Monitoring-Unterbereich (Dashboard: geplant)
-4. **Cloud-Sync** — REST-API-Anbindung an Ella-Energy (AWS)
-5. ~~**Passwort ändern / Benutzer-Verwaltung**~~ — ✅ implementiert (Liste, Neu, Bearbeiten, Sperren, Passwort setzen; nur für Admins)
+3. **Messwert-Anzeige** — Darstellung der Zeitreihen und Bit-Meldungen in der UI (Monitor-Detailseite)
+4. **Event Rules / Events / Actions** — Monitoring-Unterbereich (Dashboard: geplant)
+5. **Cloud-Sync** — REST-API-Anbindung an Ella-Energy (AWS)
 
 ---
 
@@ -325,6 +393,8 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 - **sessionStorage für Scroll** — speichert den zuletzt angeklickten Datensatz für Scroll + Highlight
 - **Monitor-Name als Query-Param** — `/monitors/[projectName]?monitor=name` statt URL-Segment (Leerzeichen-kompatibel)
 - **ON UPDATE CASCADE** — FK von `mdm_monitor_variable` auf `mdm_monitor` ermöglicht atomares Umbenennen
+- **Surrogate Key (`value_id`)** — entkoppelt `ts_monitor_value` von umbenennbarem `monitor_name`
+- **preInitMigrations-Pattern** — Tabellen mit inkompatiblem Schema vor `initSchema()` droppen, damit `CREATE TABLE IF NOT EXISTS` die neue Struktur anlegen kann
 
 ---
 
@@ -336,3 +406,4 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 - **Seed-Script** — verwendet Top-Level-await in einer `async function main()` wegen CJS-Kompatibilität
 - **SQLite ALTER COLUMN** — nicht unterstützt; Schema-Änderungen an bestehenden Spalten erfordern Table-Recreate-Pattern
 - **`title` in `mdm_monitor_variable`** — nullable (TEXT ohne NOT NULL), da Siemens-SPS-Exporte dieses Feld oft leer lassen
+- **`seq_monitor_variable` — niemals Zeilen löschen** (AUTOINCREMENT-Sequenz, Werte müssen eindeutig und monoton steigen)
