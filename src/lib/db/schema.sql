@@ -259,7 +259,7 @@ CREATE TABLE IF NOT EXISTS ts_monitor_value (
 
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_ts       ON ts_monitor_value(ts);
 CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_value_id ON ts_monitor_value(value_id, ts);
-CREATE INDEX IF NOT EXISTS idx_ts_monitor_value_status   ON ts_monitor_value(status, value_id);
+-- idx_ts_monitor_value_status wird in runMigrations() erstellt (nach addColumnIfMissing für 'status')
 
 -- Detail-Tabelle: gesetzte Bits pro ts_monitor_value-Eintrag
 CREATE TABLE IF NOT EXISTS ts_monitor_value_address (
