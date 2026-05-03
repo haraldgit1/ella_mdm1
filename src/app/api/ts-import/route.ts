@@ -128,10 +128,12 @@ function buildAddresses(
   const dotIdx = offset ? offset.lastIndexOf(".") : -1;
   const offsetBase = dotIdx > 0 ? offset!.substring(0, dotIdx) : offset;
 
-  // Split offsetBase into text prefix + trailing number so we can increment for Byte1
+  // Split offsetBase into text prefix + trailing number so we can increment for Byte1.
+  // If no text prefix (e.g. offset="104.0"), default to "DBX" (Siemens bit-address prefix).
   const numMatch = offsetBase ? offsetBase.match(/^(.*?)(\d+)$/) : null;
-  const offsetByte2 = numMatch ? `${numMatch[1]}${numMatch[2]}` : offsetBase;
-  const offsetByte1 = numMatch ? `${numMatch[1]}${parseInt(numMatch[2]) + 1}` : offsetBase;
+  const dbxPrefix = numMatch ? (numMatch[1] || "DBX") : "DBX";
+  const offsetByte2 = numMatch ? `${dbxPrefix}${numMatch[2]}` : offsetBase;
+  const offsetByte1 = numMatch ? `${dbxPrefix}${parseInt(numMatch[2]) + 1}` : offsetBase;
 
   return setBits.map((bit, i) => {
     let trigger_address: string | null = null;
