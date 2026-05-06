@@ -24,6 +24,14 @@ export function nextMonitorVariableId(): number {
   return Number(lastInsertRowid);
 }
 
+/** Returns the next co_id for a new wf_monitor_poll row. */
+export function nextMonitorPollId(): number {
+  const { lastInsertRowid } = getDb()
+    .prepare("INSERT INTO seq_monitor_poll DEFAULT VALUES")
+    .run();
+  return Number(lastInsertRowid);
+}
+
 function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
   if (!cols.some((c) => c.name === column)) {
@@ -36,7 +44,9 @@ function preInitMigrations(db: Database.Database) {
   const tables = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table'"
   ).all() as { name: string }[];
-  if (tables.some((t) => t.name === "mdm_message_text")) {
+  const tableNames = tables.map((t) => t.name);
+
+  if (tableNames.includes("mdm_message_text")) {
     const cols = db.prepare("PRAGMA table_info(mdm_message_text)").all() as { name: string }[];
     if (!cols.some((c) => c.name === "message_name")) {
       db.exec("DROP TABLE IF EXISTS mdm_message_text");
@@ -44,6 +54,28 @@ function preInitMigrations(db: Database.Database) {
       db.exec("DROP INDEX IF EXISTS idx_message_text_alarm_class");
       db.exec("DROP INDEX IF EXISTS idx_message_text_trigger_tag");
       db.exec("DROP INDEX IF EXISTS idx_message_text_status");
+    }
+  }
+
+  // Drop wf_monitor_poll and its dependents when co_id is TEXT or status constraint is outdated
+  if (tableNames.includes("wf_monitor_poll")) {
+    const pollCols = db.prepare("PRAGMA table_info(wf_monitor_poll)").all() as { name: string; type: string }[];
+    const coIdIsInteger = pollCols.find((c) => c.name === "co_id")?.type?.toUpperCase() === "INTEGER";
+    const pollSql = (db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='wf_monitor_poll'").get() as { sql: string } | undefined)?.sql ?? "";
+    const hasNewStatuses = pollSql.includes("'send'");
+    if (!coIdIsInteger || !hasNewStatuses) {
+      db.exec("DROP TABLE IF EXISTS ts_monitor_value_address");
+      db.exec("DROP TABLE IF EXISTS ts_monitor_value");
+      db.exec("DROP TABLE IF EXISTS wf_monitor_poll");
+    }
+  }
+
+  // Drop ts_monitor_value when status constraint doesn't include 'konstant'
+  if (tableNames.includes("ts_monitor_value")) {
+    const tsSql = (db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='ts_monitor_value'").get() as { sql: string } | undefined)?.sql ?? "";
+    if (!tsSql.includes("'konstant'")) {
+      db.exec("DROP TABLE IF EXISTS ts_monitor_value_address");
+      db.exec("DROP TABLE IF EXISTS ts_monitor_value");
     }
   }
 }
@@ -105,9 +137,27 @@ function runMigrations(db: Database.Database) {
     }
   }
 
+  // ── mdm_setup: Workflow-Interval + Anzeige-Zeitzone ─────────────────────
+  if (tableNames.includes("mdm_setup")) {
+    addColumnIfMissing(db, "mdm_setup", "start_workflow",     "INTEGER NOT NULL DEFAULT 1000");
+    addColumnIfMissing(db, "mdm_setup", "display_timezone",   "TEXT NOT NULL DEFAULT 'Europe/Vienna'");
+    addColumnIfMissing(db, "mdm_setup", "aktiv_record_counts", "INTEGER NOT NULL DEFAULT 100");
+    addColumnIfMissing(db, "mdm_setup", "workflow_enabled",    "INTEGER NOT NULL DEFAULT 1");
+  }
+
+  // ── mdm_monitor: SPS-Polling-Felder ─────────────────────────────────────
+  if (tableNames.includes("mdm_monitor")) {
+    addColumnIfMissing(db, "mdm_monitor", "request_url",   "TEXT");
+    addColumnIfMissing(db, "mdm_monitor", "response_file", "TEXT");
+  }
+
+  // ── wf_monitor_poll: hash_value column added later ───────────────────────
+  if (tableNames.includes("wf_monitor_poll")) {
+    addColumnIfMissing(db, "wf_monitor_poll", "hash_value", "TEXT");
+  }
+
   // ── ts_monitor_value: bit_value + workflow fields ────────────────────────
   addColumnIfMissing(db, "ts_monitor_value", "bit_value",        "TEXT");
-  addColumnIfMissing(db, "ts_monitor_value", "co_id",            "TEXT");
   // DEFAULT 'send' für bestehende Zeilen → verhindert E-Mail-Flut beim ersten Lauf
   addColumnIfMissing(db, "ts_monitor_value", "status",           "TEXT DEFAULT 'send'");
   addColumnIfMissing(db, "ts_monitor_value", "status_timestamp", "TEXT");

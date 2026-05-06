@@ -49,10 +49,12 @@ export async function POST(request: NextRequest) {
   try {
     getDb().prepare(
       `INSERT INTO mdm_monitor (
-        project_name, monitor_name, title, status, type, datablock, short_description, detail_json,
+        project_name, monitor_name, title, status, type, datablock,
+        request_url, response_file, short_description, detail_json,
         create_user, create_timestamp, modify_user, modify_timestamp, modify_status, version
       ) VALUES (
-        @project_name, @monitor_name, @title, @status, @type, @datablock, @short_description, @detail_json,
+        @project_name, @monitor_name, @title, @status, @type, @datablock,
+        @request_url, @response_file, @short_description, @detail_json,
         @create_user, @create_timestamp, @modify_user, @modify_timestamp, @modify_status, @version
       )`
     ).run({
@@ -60,6 +62,8 @@ export async function POST(request: NextRequest) {
       status: body.status ?? "active",
       type: body.type?.trim() || null,
       datablock: body.datablock?.trim() || null,
+      request_url: body.request_url?.trim() || null,
+      response_file: body.response_file?.trim() || null,
       short_description: body.short_description?.trim() || null,
       detail_json: body.detail_json?.trim() || null,
       ...audit,

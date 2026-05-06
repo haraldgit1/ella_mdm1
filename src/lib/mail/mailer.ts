@@ -25,6 +25,7 @@ export interface MonitorAlertMailOptions {
   monitorName: string;
   variableName: string;
   ts: string;
+  coId?: number;
   messages: MonitorAlertMessage[];
 }
 
@@ -58,7 +59,7 @@ export async function sendMonitorAlertMail(opts: MonitorAlertMailOptions) {
       <table style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:13px">
         <tr>
           <td style="color:#888;padding:3px 0;width:120px">Zeitstempel</td>
-          <td style="font-weight:600">${tsFormatted}</td>
+          <td style="font-weight:600">${tsFormatted}${opts.coId != null ? `&nbsp;<span style="color:#999;font-size:11px;font-family:monospace">(co_id&nbsp;${opts.coId})</span>` : ""}</td>
         </tr>
         <tr>
           <td style="color:#888;padding:3px 0">Variable</td>

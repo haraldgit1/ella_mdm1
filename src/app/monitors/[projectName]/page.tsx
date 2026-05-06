@@ -18,7 +18,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 const EMPTY: Partial<Monitor> = {
   project_name: "", monitor_name: "", title: "", status: "active",
-  type: "", datablock: "", short_description: "", detail_json: "",
+  type: "", datablock: "", request_url: "", response_file: "", short_description: "", detail_json: "",
 };
 
 export default function MonitorDetailPage({
@@ -53,6 +53,10 @@ export default function MonitorDetailPage({
   const [spsStatus, setSpsStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [tsImportLoading, setTsImportLoading] = useState(false);
   const [tsImportStatus, setTsImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [pollLoading, setPollLoading] = useState(false);
+  const [pollStatus, setPollStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [wfLoading, setWfLoading] = useState(false);
+  const [wfStatus, setWfStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLocked = form.modify_status === "locked";
@@ -160,6 +164,56 @@ export default function MonitorDetailPage({
     }
   }
 
+  async function handleWorkflow() {
+    setWfLoading(true);
+    setWfStatus(null);
+
+    const pollRes = await fetch("/api/monitor-poll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_name: projectName, monitor_name: monitorName }),
+    });
+    const pollData = await pollRes.json();
+    if (!pollRes.ok) {
+      setWfLoading(false);
+      setWfStatus({ ok: false, msg: `Abfrage: ${pollData.error ?? "Fehler"}` });
+      return;
+    }
+
+    const dispatchRes = await fetch("/api/email-dispatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const dispatchData = await dispatchRes.json();
+    setWfLoading(false);
+    if (!dispatchRes.ok) {
+      setWfStatus({ ok: false, msg: `Dispatch: ${dispatchData.error ?? "Fehler"}` });
+    } else {
+      setWfStatus({
+        ok: true,
+        msg: `${pollData.imported} Werte importiert · ${dispatchData.sent} E-Mails · ${dispatchData.konstant} konstant`,
+      });
+    }
+  }
+
+  async function handlePoll() {
+    setPollLoading(true);
+    setPollStatus(null);
+    const res = await fetch("/api/monitor-poll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_name: projectName, monitor_name: monitorName }),
+    });
+    const data = await res.json();
+    setPollLoading(false);
+    if (!res.ok) {
+      setPollStatus({ ok: false, msg: data.error ?? "Fehler" });
+    } else {
+      setPollStatus({ ok: true, msg: `${data.imported} Werte importiert, co_id=${data.co_id}` });
+    }
+  }
+
   async function handleTsImport(file: File) {
     setTsImportLoading(true);
     setTsImportStatus(null);
@@ -264,6 +318,16 @@ export default function MonitorDetailPage({
                 {tsImportStatus.ok ? "✓ " : "✗ "}{tsImportStatus.msg}
               </span>
             )}
+            {pollStatus && (
+              <span className={`text-xs font-medium ${pollStatus.ok ? "text-green-600" : "text-red-600"}`}>
+                {pollStatus.ok ? "✓ " : "✗ "}{pollStatus.msg}
+              </span>
+            )}
+            {wfStatus && (
+              <span className={`text-xs font-medium ${wfStatus.ok ? "text-green-600" : "text-red-600"}`}>
+                {wfStatus.ok ? "✓ " : "✗ "}{wfStatus.msg}
+              </span>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -274,6 +338,14 @@ export default function MonitorDetailPage({
             <button onClick={() => fileInputRef.current?.click()} disabled={tsImportLoading}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
               {tsImportLoading ? "Importiert…" : "Messwerte importieren"}
+            </button>
+            <button onClick={handlePoll} disabled={pollLoading || wfLoading}
+              className="rounded-lg border border-blue-300 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+              {pollLoading ? "Abfrage läuft…" : "Messwerte abfragen"}
+            </button>
+            <button onClick={handleWorkflow} disabled={wfLoading || pollLoading}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+              {wfLoading ? "WorkFlow läuft…" : "Start WorkFlow"}
             </button>
             <button onClick={handleCreateMonitorInterface} disabled={spsLoading}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
@@ -339,6 +411,15 @@ export default function MonitorDetailPage({
               <Field label="Datenbaustein (Default für Variablen)">
                 <input type="text" value={form.datablock ?? ""} onChange={(e) => set("datablock", e.target.value)}
                   disabled={isLocked} placeholder="DB10" className={inp(isLocked)} />
+              </Field>
+              <Field label="SPS Request URL" className="sm:col-span-2">
+                <input type="text" value={form.request_url ?? ""} onChange={(e) => set("request_url", e.target.value)}
+                  disabled={isLocked} placeholder="http://192.168.0.10/awp/api/PLC_KH_Visu.html"
+                  className={inp(isLocked)} />
+              </Field>
+              <Field label="Response-Dateiname">
+                <input type="text" value={form.response_file ?? ""} onChange={(e) => set("response_file", e.target.value)}
+                  disabled={isLocked} placeholder="PLC_KH_Visu.html" className={inp(isLocked)} />
               </Field>
             </div>
           )}

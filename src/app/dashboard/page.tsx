@@ -62,6 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Import CSV",         icon: "⬆️",  href: "/import" },
       { label: "Export CSV",         icon: "⬇️",  href: "/export" },
       { label: "Benutzer & Rollen",  icon: "👤", href: "/users"  },
+      { label: "Setup",              icon: "⚙️",  href: "/setup"  },
       { label: "Kommunikation",      icon: "📡", planned: true   },
       { label: "Logging & Diagnose", icon: "🔍", planned: true   },
     ],

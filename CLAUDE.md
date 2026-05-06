@@ -300,16 +300,20 @@ Erzeugt eine `.html`-Datei im Verzeichnis `data/` mit der JSON-Struktur für den
 - `value = -5` → `null` (negative Werte → null)
 - `value = 7.8` → `Math.round` → 8 → `"0000000000001000"`
 
-**ts_monitor_value_address — Byte-Split:**
-- `trigger_bit` = 0-basierter Index von links im 16-Char-String (Zeichen 0 = linkestes = Bit 0)
+**ts_monitor_value_address — Byte-Split (Siemens Big-Endian):**
+- `trigger_bit` = 0-basierter Index von links im 16-Char-String (Zeichen 0 = MSB = links)
 - Sortierung aufsteigend → `pos=1` = niedrigster trigger_bit
-- **Byte1** (trigger_bit 0–7): `offsetBase`-Zahl +1; Bit-Anteil der Adresse = trigger_bit
-- **Byte2** (trigger_bit 8–15): `offsetBase`-Zahl unverändert; Bit-Anteil = trigger_bit − 8
-- `offsetBase` = offset ohne letztes `.X` (z.B. `"DBX102.0"` → `"DBX102"`, `"104.0"` → `"104"`)
+- **High-Byte** (trigger_bit 0–7): Siemens-Byte = `offsetBase` (unverändert); Siemens-Bit = `7 − trigger_bit`
+- **Low-Byte** (trigger_bit 8–15): Siemens-Byte = `offsetBase + 1`; Siemens-Bit = `15 − trigger_bit`
+- `offsetBase` = offset ohne letztes `.X` (z.B. `"DBX120.0"` → `"DBX120"`, `"104.0"` → `"104"`)
+- Byte-Reihenfolge: erstes Byte (120) = High-Byte (links), zweites Byte (121) = Low-Byte (rechts)
+- Bit-Reihenfolge innerhalb Byte: `.7` = MSB (links), `.0` = LSB (rechts)
 
-Beispiele mit `datablock="DB31"`, `offset="DBX102.0"`:
-- trigger_bit=3 → `%DB31.DBX103.3` (Byte1: 102+1=103, bit=3)
-- trigger_bit=8 → `%DB31.DBX102.0` (Byte2: 102 bleibt, bit=8-8=0)
+Beispiele mit `datablock="DB31"`, `offset="DBX120.0"`:
+- trigger_bit=0  → `%DB31.DBX120.7` (High-Byte, MSB)
+- trigger_bit=7  → `%DB31.DBX120.0` (High-Byte, LSB)
+- trigger_bit=8  → `%DB31.DBX121.7` (Low-Byte, MSB)
+- trigger_bit=15 → `%DB31.DBX121.0` (Low-Byte, LSB) ← Beispiel: value=1 → trigger_bit=15
 
 ### Formular-Tabs (Projekte)
 

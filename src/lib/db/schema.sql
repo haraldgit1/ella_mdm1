@@ -180,6 +180,8 @@ CREATE TABLE IF NOT EXISTS mdm_monitor (
                                  CHECK (status IN ('active','inactive')),
     type                  TEXT,
     datablock             TEXT,
+    request_url           TEXT,
+    response_file         TEXT,
     short_description     TEXT,
     detail_json           TEXT    CHECK (detail_json IS NULL OR json_valid(detail_json)),
     create_user           TEXT    NOT NULL,
@@ -228,17 +230,27 @@ CREATE TABLE IF NOT EXISTS seq_monitor_variable (
     value_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
 );
 
+-- Sequence table for wf_monitor_poll surrogate keys (never delete rows)
+CREATE TABLE IF NOT EXISTS seq_monitor_poll (
+    co_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
+);
+
 -- Workflow-Header: ein Datensatz pro SPS-Polling-Zyklus
 CREATE TABLE IF NOT EXISTS wf_monitor_poll (
-    co_id          TEXT    NOT NULL PRIMARY KEY,
+    co_id          INTEGER NOT NULL PRIMARY KEY,
     project_name   TEXT    NOT NULL,
     monitor_name   TEXT    NOT NULL,
     polled_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status         TEXT    NOT NULL DEFAULT 'init'
-                           CHECK (status IN ('init', 'response', 'import', 'error')),
+                           CHECK (status IN ('init', 'response', 'import', 'error', 'send', 'konstant')),
     response_at    TEXT,
     import_at      TEXT,
-    error_message  TEXT
+    error_message  TEXT,
+    hash_value     TEXT,
+    FOREIGN KEY (project_name)
+        REFERENCES mdm_project(project_name)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_wf_monitor_poll_status  ON wf_monitor_poll(status, polled_at);
@@ -251,9 +263,9 @@ CREATE TABLE IF NOT EXISTS ts_monitor_value (
     value_id         INTEGER NOT NULL REFERENCES seq_monitor_variable(value_id),
     value            REAL,
     bit_value        TEXT,
-    co_id            TEXT    REFERENCES wf_monitor_poll(co_id),
+    co_id            INTEGER REFERENCES wf_monitor_poll(co_id),
     status           TEXT    NOT NULL DEFAULT 'import'
-                             CHECK (status IN ('import', 'send')),
+                             CHECK (status IN ('import', 'send', 'konstant')),
     status_timestamp TEXT
 );
 
@@ -303,6 +315,26 @@ CREATE INDEX IF NOT EXISTS idx_message_text_project       ON mdm_message_text(pr
 CREATE INDEX IF NOT EXISTS idx_message_text_message_class ON mdm_message_text(message_class);
 CREATE INDEX IF NOT EXISTS idx_message_text_trigger_tag   ON mdm_message_text(trigger_tag);
 CREATE INDEX IF NOT EXISTS idx_message_text_status        ON mdm_message_text(modify_status);
+
+CREATE TABLE IF NOT EXISTS mdm_setup (
+    name                  TEXT    NOT NULL,
+    dispatch_delta_time   INTEGER NOT NULL DEFAULT 3600,
+    start_workflow        INTEGER NOT NULL DEFAULT 1000,
+    display_timezone      TEXT    NOT NULL DEFAULT 'Europe/Vienna',
+    aktiv_record_counts   INTEGER NOT NULL DEFAULT 100,
+    workflow_enabled      INTEGER NOT NULL DEFAULT 1 CHECK (workflow_enabled IN (0, 1)),
+    archive_hour          INTEGER NOT NULL DEFAULT 48,
+    create_user           TEXT    NOT NULL,
+    create_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_user           TEXT    NOT NULL,
+    modify_timestamp      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modify_status         TEXT    NOT NULL DEFAULT 'inserted'
+                                 CHECK (modify_status IN ('inserted','updated','locked','deleted')),
+    version               INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_setup_status ON mdm_setup(modify_status);
 
 -- better-auth Tabellen (user, session, account, verification)
 CREATE TABLE IF NOT EXISTS "user" (

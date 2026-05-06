@@ -7,6 +7,8 @@ export interface Monitor {
   status: "active" | "inactive";
   type?: string;
   datablock?: string;
+  request_url?: string;
+  response_file?: string;
   short_description?: string;
   detail_json?: string;
   create_user: string;
@@ -25,6 +27,8 @@ export type MonitorInput = Pick<
   | "status"
   | "type"
   | "datablock"
+  | "request_url"
+  | "response_file"
   | "short_description"
   | "detail_json"
 >;

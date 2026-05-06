@@ -77,7 +77,8 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
     db.prepare(
       `UPDATE mdm_monitor SET
         title=@title, status=@status, type=@type,
-        datablock=@datablock, short_description=@short_description, detail_json=@detail_json,
+        datablock=@datablock, request_url=@request_url, response_file=@response_file,
+        short_description=@short_description, detail_json=@detail_json,
         modify_user=@modify_user, modify_timestamp=@modify_timestamp,
         modify_status=@modify_status, version=version+1
        WHERE project_name=@project_name AND monitor_name=@monitor_name`
@@ -85,6 +86,8 @@ export async function PUT(request: NextRequest, ctx: Ctx) {
       ...body,
       type: body.type?.trim() || null,
       datablock: body.datablock?.trim() || null,
+      request_url: body.request_url?.trim() || null,
+      response_file: body.response_file?.trim() || null,
       short_description: body.short_description?.trim() || null,
       detail_json: body.detail_json?.trim() || null,
       ...audit,
